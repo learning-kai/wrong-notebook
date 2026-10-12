@@ -29,6 +29,9 @@ model User {
   subjects   Subject[]
   practiceRecords PracticeRecord[]
   customTags KnowledgeTag[] // User's custom tags
+  studyCourses StudyCourse[]
+  memoryCards MemoryCard[]
+  memoryReviews MemoryReview[]
 }
 
 // 统一知识点标签表 (支持无限层级)
@@ -138,4 +141,86 @@ model PracticeRecord {
   isCorrect Boolean?
   
   createdAt DateTime @default(now())
+}
+
+model StudyCourse {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  subjectKey  String?
+  examYear    Int?
+  chapters    StudyChapter[]
+  cards       MemoryCard[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model StudyChapter {
+  id        String      @id @default(cuid())
+  courseId  String
+  course    StudyCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  name      String
+  order     Int         @default(0)
+  cards     MemoryCard[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@unique([courseId, name])
+  @@index([courseId, order])
+}
+
+model MemoryCard {
+  id            String        @id @default(cuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId      String
+  course        StudyCourse   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  chapterId     String?
+  chapter       StudyChapter?  @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+  title         String
+  cardType      String        @default("basic") // basic, translation, formula, cloze, condition, compare
+  prompt        String
+  answer        String
+  explanation   String?
+  conditions    String?
+  pitfalls      String?
+  tags          String?       // JSON array for flexible import/export
+  source        String?
+  notes         String?
+  dueAt         DateTime      @default(now())
+  lastReviewedAt DateTime?
+  intervalDays  Float         @default(0)
+  easeFactor    Float         @default(2.5)
+  repetitions   Int           @default(0)
+  lapses        Int           @default(0)
+  suspended     Boolean       @default(false)
+  reviews       MemoryReview[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([userId, dueAt])
+  @@index([courseId, chapterId])
+}
+
+model MemoryReview {
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cardId        String
+  card          MemoryCard  @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  rating        String      // again, hard, good, easy
+  mode          String      @default("recall")
+  previousDueAt DateTime?
+  nextDueAt     DateTime?
+  responseMs    Int?
+  note          String?
+  reviewedAt    DateTime    @default(now())
+
+  @@index([userId, reviewedAt])
+  @@index([cardId, reviewedAt])
 }
