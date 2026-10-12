@@ -11,11 +11,9 @@ export const ParsedQuestionSchema = z.object({
     wrongAnswerText: z.string().optional().default(""),
     mistakeAnalysis: z.string().optional().default(""),
     mistakeStatus: z.enum(["not_attempted", "wrong_attempt", "unknown"]).optional().default("unknown"),
-    subject: z.enum([
-        "数学", "物理", "化学", "生物",
-        "英语", "语文", "历史", "地理",
-        "政治", "其他"
-    ]),
+    // Keep this open-ended: postgraduate notebooks may use subjects such as
+    // 高数、线代、概率论、信号与系统、电路 or a school-specific professional course.
+    subject: z.string().min(1, "学科不能为空"),
     knowledgePoints: z.array(z.string()).max(5, "知识点最多 5 个"),
     requiresImage: z.boolean().optional().default(false), // 题目是否依赖图片（如几何题）
 });

@@ -94,6 +94,18 @@ describe('calculateGrade', () => {
         });
     });
 
+    describe('考研阶段 (postgraduate_exam)', () => {
+        it('应该使用目标考试年份而不是生成小学到大学的年级', () => {
+            const result = calculateGrade('postgraduate_exam', 2027, new Date('2026-10-15'), 'zh');
+            expect(result).toBe('考研 2027');
+        });
+
+        it('英文应明确表示 postgraduate entrance exam target year', () => {
+            const result = calculateGrade('postgraduate_exam', 2027, new Date('2026-10-15'), 'en');
+            expect(result).toBe('Postgraduate Entrance Exam 2027');
+        });
+    });
+
     describe('学期判断逻辑', () => {
         it('9月份应该是上期', () => {
             const result = calculateGrade('junior_high', 2024, new Date('2024-09-01'), 'zh');

@@ -815,16 +815,17 @@ export function SettingsDialog() {
                                                 <SelectItem value="junior_high">{t.auth?.juniorHigh || 'Junior High'}</SelectItem>
                                                 <SelectItem value="senior_high">{t.auth?.seniorHigh || 'Senior High'}</SelectItem>
                                                 <SelectItem value="university">{t.auth?.university || 'University'}</SelectItem>
+                                                <SelectItem value="postgraduate_exam">{t.auth?.postgraduateExam || '考研 / Postgraduate Exam'}</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>{t.auth?.enrollmentYear || "Enrollment Year"}</Label>
+                                        <Label>{profile.educationStage === 'postgraduate_exam' ? (t.auth?.targetExamYear || '目标考试年份') : (t.auth?.enrollmentYear || "Enrollment Year")}</Label>
                                         <Input
                                             type="number"
                                             value={profile.enrollmentYear || ""}
                                             onChange={(e) => setProfile({ ...profile, enrollmentYear: e.target.value })}
-                                            placeholder="YYYY"
+                                            placeholder={profile.educationStage === 'postgraduate_exam' ? '例如 2027' : 'YYYY'}
                                         />
                                     </div>
                                 </div>

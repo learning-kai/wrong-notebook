@@ -12,6 +12,9 @@ export function gradeSemesterToGradeNumber(gradeSemester: string): 7 | 8 | 9 | 1
   if (!gradeSemester) return null;
   const gs = gradeSemester.toLowerCase();
 
+  // 考研是考试目标年份，不属于 K12 年级数字。
+  if (gs.includes('考研') || gs.includes('postgraduate')) return null;
+
   // 小学：primary_3 → 不映射到 7-12，返回 null
   if (gs.startsWith('primary') || gs.includes('小学') || gs.match(/[一二三四五六]年级/)) {
     return null;
@@ -38,6 +41,11 @@ export function gradeSemesterToGradeNumber(gradeSemester: string): 7 | 8 | 9 | 1
 export function gradeSemesterToDisplayName(gradeSemester: string): string | null {
   if (!gradeSemester) return null;
   const gs = gradeSemester;
+
+  const postgraduateMatch = gs.match(/(?:考研|postgraduate(?: entrance exam)?)\s*[,：:\s]?\s*(20\d{2})?/i);
+  if (postgraduateMatch) {
+    return postgraduateMatch[1] ? `考研（${postgraduateMatch[1]}）` : '考研';
+  }
 
   // 小学
   const primaryMatch = gs.match(/primary[_\s]?(\d)/);
@@ -91,6 +99,11 @@ export function generateGradeInstruction(gradeSemester?: string | null): string 
   const displayName = gradeSemesterToDisplayName(gradeSemester);
   if (!displayName) return '';
 
+  if (displayName.startsWith('考研')) {
+    const year = displayName.match(/(20\d{2})/)?.[1];
+    return `\n【考研阶段约束】\n目标考试年份：${year || '未指定'}\n请按研究生入学考试的知识范围、题型和评分要求作答；不要使用小学、初中或高中课程标签，也不要把本题降级为 K12 题目。\n`;
+  }
+
   return `\n【学历约束】\n本题目标年级：${displayName}\n请严格使用该年级课程标准范围内的方法解答，禁止使用超纲知识。\n`;
 }
 
@@ -123,7 +136,7 @@ export const DEFAULT_ANALYZE_TEMPLATE = `【角色与核心任务 (ROLE AND CORE
 请严格按照以下结构输出内容：
 
 <subject>
-在此处填写学科，必须是以下之一："数学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"。
+填写最具体的学科名称。K12 题目可使用数学、物理、化学、生物、英语、语文、历史、地理、政治；考研题目可使用高数、线代、概率论、信号与系统、政治、英语一、英语二或具体专业课名称；无法判断时填写其他。
 </subject>
 
 <knowledge_points>
@@ -212,11 +225,11 @@ export const DEFAULT_ANALYZE_TEMPLATE = `【角色与核心任务 (ROLE AND CORE
 {{grade_instruction}}
 {{provider_hints}}`;
 
-export const DEFAULT_SIMILAR_TEMPLATE = `你是一位资深的K12教育题目生成专家，具备跨学科的题目创作能力。你的核心任务是**根据以下原题和知识点，举一反三生成高质量教学题目**，帮助学生巩固知识并拓展解题思路。
+export const DEFAULT_SIMILAR_TEMPLATE = `你是一位资深的考试题目生成专家，既能处理 K12 题目，也能处理本科课程和研究生入学考试题目。你的核心任务是**根据以下原题、知识点和学习阶段，举一反三生成高质量训练题**，帮助学生巩固知识并拓展解题思路。
 ### 角色定义
 1. **学科全能专家**  
-   - 精通K12阶段所有学科（数学/语文/英语/物理/化学/生物/历史/地理/政治）
-   - 熟悉各年级课程标准与知识点分布
+   - 能区分 K12、本科课程与考研数学/英语/政治/专业课
+   - 熟悉考研真题的题型、难度、计算量和评分点
    - 能准确识别题目考察的核心能力点（计算/推理/分析/应用/创新）
 2. **题目变异大师**  
    - 掌握12种变式技法：条件替换/情境迁移/问题转化/数据重构/图形变形/角色反转/跨学科融合/难度阶梯/开放拓展/陷阱设计/逆向思维/生活应用
@@ -339,10 +352,19 @@ export function generateAnalyzePrompt(
   const englishTags = options?.prefetchedEnglishTags || [];
   const englishTagsString = englishTags.length > 0 ? englishTags.map(tag => `"${tag}"`).join(", ") : '（无可用标签）';
 
+  const isPostgraduateSubject = !!subject && (
+    /高数|线代|概率|信号与系统|考研|电路|模电|数电|通信原理|数据结构|自动控制|专业课|408|英语一|英语二/.test(subject)
+  );
+
   // 根据科目决定显示哪些标签（节省 token，提高准确性）
   let tagsSection = "";
 
-  if (subject === '数学') {
+  if (isPostgraduateSubject) {
+    tagsSection = `**考研/专业课知识点 (Postgraduate Topics):**
+当前错题本学科：${subject}
+使用考研或本科专业课的准确知识点名称；不要使用小学、初中或高中课程标签。
+如果无法从预设列表匹配，可以输出该考试科目下的规范知识点，但每题最多 5 个标签。`;
+  } else if (subject === '数学') {
     tagsSection = `**数学标签 (Math Tags):**
 使用人教版课程大纲中的**精确标签名称**，可选标签如下：
 ${mathTagsString}

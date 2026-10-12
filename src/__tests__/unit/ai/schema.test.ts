@@ -45,6 +45,14 @@ describe('ParsedQuestionSchema 验证', () => {
             });
             expect(result.success).toBe(false);
         });
+
+        it('应该接受考研学科，而不是把高数降级成其他', () => {
+            const result = ParsedQuestionSchema.safeParse({
+                ...validBaseQuestion,
+                subject: '高数',
+            });
+            expect(result.success).toBe(true);
+        });
     });
 
     describe('错因分析字段验证', () => {

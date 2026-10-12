@@ -25,6 +25,7 @@ export default function RegisterPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [allowRegistration, setAllowRegistration] = useState<boolean | null>(null);
+    const isPostgraduateExam = educationStage === 'postgraduate_exam';
 
     useEffect(() => {
         checkRegistrationStatus();
@@ -229,11 +230,12 @@ export default function RegisterPage() {
                                 <option value="junior_high">{t.auth?.juniorHigh || 'Junior High'}</option>
                                 <option value="senior_high">{t.auth?.seniorHigh || 'Senior High'}</option>
                                 <option value="university">{t.auth?.university || 'University'}</option>
+                                <option value="postgraduate_exam">{t.auth?.postgraduateExam || '考研 / Postgraduate Exam'}</option>
                             </select>
                         </div>
                         <div className="space-y-2">
                             <label htmlFor="enrollmentYear" className="text-sm font-medium">
-                                {t.auth?.enrollmentYear || 'Enrollment Year'}
+                                {isPostgraduateExam ? (t.auth?.targetExamYear || '目标考试年份') : (t.auth?.enrollmentYear || 'Enrollment Year')}
                             </label>
                             <Input
                                 id="enrollmentYear"
@@ -241,10 +243,10 @@ export default function RegisterPage() {
                                 type="number"
                                 value={enrollmentYear}
                                 onChange={(e) => setEnrollmentYear(e.target.value)}
-                                placeholder="YYYY"
+                                placeholder={isPostgraduateExam ? '例如 2027' : 'YYYY'}
                                 required
                                 min={1990}
-                                max={new Date().getFullYear()}
+                                max={isPostgraduateExam ? new Date().getFullYear() + 5 : new Date().getFullYear()}
                             />
                         </div>
                         {error && (

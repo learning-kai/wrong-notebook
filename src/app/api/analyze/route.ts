@@ -7,6 +7,7 @@ import { calculateGrade } from "@/lib/grade-calculator";
 import { prisma } from "@/lib/prisma";
 import { badRequest, internalError, createErrorResponse, ErrorCode } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
+import { normalizePostgraduateSubjectName } from "@/lib/study-track";
 
 const logger = createLogger('api:analyze');
 
@@ -50,7 +51,8 @@ export async function POST(req: Request) {
         // 先获取用户年级信息，用于动态生成 AI prompt 中的标签列表
         let userGrade: 7 | 8 | 9 | 10 | 11 | 12 | null = null;
         let userGradeSemester: string | null = null;
-        let subjectName: 'math' | 'physics' | 'chemistry' | 'biology' | 'english' | 'chinese' | 'history' | 'geography' | 'politics' | null = null;
+        let subjectName: string | null = null;
+        let subjectDisplayName: string | null = null;
 
         if (session?.user?.email) {
             try {
@@ -76,6 +78,7 @@ export async function POST(req: Request) {
                     });
 
                     if (subject) {
+                        subjectDisplayName = subject.name;
                         subjectName = inferSubjectFromName(subject.name);
                         logger.debug({ subjectName, subjectDisplayName: subject.name }, 'Inferred subject');
                     }
@@ -99,7 +102,8 @@ export async function POST(req: Request) {
             'geography': '地理',
             'politics': '政治',
         };
-        const subjectChinese = subjectName ? subjectNameMapping[subjectName] : null;
+        const subjectChinese = normalizePostgraduateSubjectName(subjectDisplayName)
+            || (subjectName ? subjectNameMapping[subjectName] : null);
 
         logger.info({ userGrade, userGradeSemester, subject: subjectChinese }, 'Calling AI service for image analysis');
         const aiService = getAIService();

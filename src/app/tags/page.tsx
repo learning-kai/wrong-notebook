@@ -34,6 +34,13 @@ const SUBJECTS = [
     { key: 'history', name: '历史' },
     { key: 'geography', name: '地理' },
     { key: 'politics', name: '政治' },
+    { key: 'calculus', name: '高数' },
+    { key: 'linear_algebra', name: '线代' },
+    { key: 'probability', name: '概率论' },
+    { key: 'signals_systems', name: '信号与系统' },
+    { key: 'english_exam', name: '考研英语' },
+    { key: 'politics_exam', name: '考研政治' },
+    { key: 'professional_course', name: '考研专业课' },
 ] as const;
 
 type SubjectKey = typeof SUBJECTS[number]['key'];
@@ -54,6 +61,13 @@ export default function TagsPage() {
         history: null,
         geography: null,
         politics: null,
+        calculus: null,
+        linear_algebra: null,
+        probability: null,
+        signals_systems: null,
+        english_exam: null,
+        politics_exam: null,
+        professional_course: null,
     });
 
     // 自定义标签 (扁平列表，仅用于显示)

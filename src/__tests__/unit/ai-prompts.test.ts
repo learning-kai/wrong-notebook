@@ -259,6 +259,10 @@ describe('AI Prompts', () => {
         it('无法识别的格式应返回 null', () => {
             expect(gradeSemesterToDisplayName('unknown_format')).toBeNull();
         });
+
+        it('应该识别考研目标年份', () => {
+            expect(gradeSemesterToDisplayName('考研 2027')).toBe('考研（2027）');
+        });
     });
 
     describe('gradeSemesterToGradeNumber', () => {
@@ -284,6 +288,16 @@ describe('AI Prompts', () => {
 
         it('空字符串应返回 null', () => {
             expect(gradeSemesterToGradeNumber('')).toBeNull();
+        });
+
+        it('考研阶段不应被映射成 K12 年级数字', () => {
+            expect(gradeSemesterToGradeNumber('考研 2027')).toBeNull();
+        });
+
+        it('考研学历约束应使用考研语境，而不是超纲提示', () => {
+            expect(generateGradeInstruction('考研 2027')).toContain('考研');
+            expect(generateGradeInstruction('考研 2027')).toContain('目标考试年份：2027');
+            expect(generateGradeInstruction('考研 2027')).not.toContain('禁止使用超纲知识');
         });
     });
 

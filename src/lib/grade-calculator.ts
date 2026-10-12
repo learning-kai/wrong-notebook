@@ -4,6 +4,12 @@ export function calculateGrade(
     currentDate: Date = new Date(),
     language: 'zh' | 'en' = 'en'
 ): string {
+    if (educationStage === 'postgraduate_exam') {
+        return language === 'zh'
+            ? `考研 ${enrollmentYear}`
+            : `Postgraduate Entrance Exam ${enrollmentYear}`;
+    }
+
     const currentYear = currentDate.getFullYear();
     const currentMonth = currentDate.getMonth() + 1; // 1-12
 

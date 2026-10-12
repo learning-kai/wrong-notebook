@@ -580,6 +580,8 @@ export const translations = {
             juniorHigh: "Junior High",
             seniorHigh: "Senior High",
             university: "University",
+            postgraduateExam: "Postgraduate Exam",
+            targetExamYear: "Target Exam Year",
             login: {
                 title: "Login to Wrong Notebook",
                 failed: "Login failed, please check your credentials",
@@ -1227,6 +1229,8 @@ export const translations = {
             juniorHigh: "初中",
             seniorHigh: "高中",
             university: "大学",
+            postgraduateExam: "考研",
+            targetExamYear: "目标考试年份",
             login: {
                 title: "登录到错题本",
                 failed: "登录失败，请检查邮箱和密码",

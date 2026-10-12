@@ -118,11 +118,9 @@ export class OpenAIProvider implements AIService {
         }
 
         // Process Subject
-        let subject: ParsedQuestion['subject'] = '其他';
-        const validSubjects: ParsedQuestion['subject'][] = ["数学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"];
-        if (subjectRaw && (validSubjects as string[]).includes(subjectRaw)) {
-            subject = subjectRaw as ParsedQuestion['subject'];
-        }
+        // K12 and postgraduate subjects are both valid. Do not collapse
+        // postgraduate subjects into “其他”.
+        const subject: ParsedQuestion['subject'] = subjectRaw || '其他';
 
         // Process Knowledge Points
         let knowledgePoints: string[] = [];

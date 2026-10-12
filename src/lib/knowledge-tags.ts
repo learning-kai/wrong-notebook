@@ -57,10 +57,19 @@ export function calculateGradeNumber(
  * @param subjectName 错题本名称
  * @returns 学科标识
  */
-export function inferSubjectFromName(subjectName: string | null): 'math' | 'physics' | 'chemistry' | 'biology' | 'english' | 'chinese' | 'history' | 'geography' | 'politics' | null {
+export function inferSubjectFromName(subjectName: string | null): string | null {
     if (!subjectName) return null;
 
     const lowerName = subjectName.toLowerCase();
+
+    // Postgraduate subjects use their own tag namespaces instead of K12 ones.
+    if (/(高数|高等数学|数学一|数学二|数学三|考研数学)/.test(subjectName)) return 'calculus';
+    if (/(线代|线性代数)/.test(subjectName)) return 'linear_algebra';
+    if (/(概率论|数理统计|概率与数理统计)/.test(subjectName)) return 'probability';
+    if (/(信号与系统|信号系统)/.test(subjectName)) return 'signals_systems';
+    if (/(考研政治|政治理论)/.test(subjectName)) return 'politics_exam';
+    if (/(考研英语|英语一|英语二)/.test(subjectName)) return 'english_exam';
+    if (/(电路|模电|数电|通信原理|数据结构|自动控制|专业课|408)/.test(subjectName) && lowerName.includes('考研')) return 'professional_course';
 
     if (lowerName.includes('math') || lowerName.includes('数学')) return 'math';
     if (lowerName.includes('physics') || lowerName.includes('物理')) return 'physics';

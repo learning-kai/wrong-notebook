@@ -65,6 +65,8 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
     const [educationStage, setEducationStage] = useState<string | undefined>(undefined);
     const [notebooks, setNotebooks] = useState<Notebook[]>([]);
 
+    const isPostgraduateExam = educationStage === 'postgraduate_exam';
+
 
 
     // Fetch user info and calculate grade on mount
@@ -259,7 +261,7 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                             <Input
                                 value={data.gradeSemester || ""}
                                 onChange={(e) => setData({ ...data, gradeSemester: e.target.value })}
-                                placeholder="e.g. Junior High Grade 1, 1st Semester"
+                                placeholder={isPostgraduateExam ? '例如：考研 2027' : 'e.g. Junior High Grade 1, 1st Semester'}
                             />
                         </div>
                         <div className="space-y-2">
@@ -272,9 +274,9 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="a">{t.editor.paperLevels?.a || "Paper A"}</SelectItem>
-                                    <SelectItem value="b">{t.editor.paperLevels?.b || "Paper B"}</SelectItem>
-                                    <SelectItem value="other">{t.editor.paperLevels?.other || "Other"}</SelectItem>
+                                    <SelectItem value="a">{isPostgraduateExam ? '真题' : (t.editor.paperLevels?.a || "Paper A")}</SelectItem>
+                                    <SelectItem value="b">{isPostgraduateExam ? '模拟题' : (t.editor.paperLevels?.b || "Paper B")}</SelectItem>
+                                    <SelectItem value="other">{isPostgraduateExam ? '练习/其他' : (t.editor.paperLevels?.other || "Other")}</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

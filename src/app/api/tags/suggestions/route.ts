@@ -70,6 +70,10 @@ export async function GET(req: Request) {
 
         // Filter by stage if provided
         if (stage) {
+            if (stage === 'postgraduate_exam') {
+                // Do not leak K12 system tags into postgraduate notebooks.
+                suggestions = suggestions.filter(tag => !tag.isSystem);
+            }
             const allowedGradePatterns: Record<string, string[]> = {
                 'primary': ['一年级', '二年级', '三年级', '四年级', '五年级', '六年级'],
                 'junior_high': ['七年级', '八年级', '九年级'],
