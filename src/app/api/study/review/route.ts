@@ -11,8 +11,14 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const limit = Math.min(Number(url.searchParams.get('limit') || 20), 100);
   const courseId = url.searchParams.get('courseId') || undefined;
+  const mode = url.searchParams.get('mode') || 'due';
   const cards = await prisma.memoryCard.findMany({
-    where: { userId: user.id, suspended: false, dueAt: { lte: new Date() }, ...(courseId ? { courseId } : {}) },
+    where: {
+      userId: user.id,
+      suspended: false,
+      ...(mode === 'mistakes' ? { reviews: { some: { rating: { in: ['again', 'hard'] } } } } : { dueAt: { lte: new Date() } }),
+      ...(courseId ? { courseId } : {}),
+    },
     include: { course: true, chapter: true },
     orderBy: { dueAt: 'asc' },
     take: limit,
