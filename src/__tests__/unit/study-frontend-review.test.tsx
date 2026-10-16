@@ -1,0 +1,32 @@
+import React,{act} from 'react';
+import {createRoot,Root} from 'react-dom/client';
+import {afterEach,it,expect} from 'vitest';
+import type {CardDTO} from '../../lib/study-contract';
+(globalThis as typeof globalThis & {IS_REACT_ACT_ENVIRONMENT:boolean}).IS_REACT_ACT_ENVIRONMENT=true;
+let host:HTMLDivElement;let root:Root|undefined;
+afterEach(async()=>{if(root)await act(async()=>root?.unmount());host?.remove();root=undefined;});
+it('先作答、显示对照、自评只提交一次同一事件；下一张清空回答且不跳卡',async()=>{
+ const mod=await import('../../components/study/review');expect(mod).toHaveProperty('ReviewView');const {ReviewView}=mod;
+ const cards=['a','b','c'].map(id=>({id,title:id,prompt:'问题',answer:'秘密答案',cardType:'basic',course:{id:'course',name:'数学'},dueAt:'2026-10-13T00:00:00Z',slots:{},sentences:[],tags:[]})) as unknown as CardDTO[];
+ const events:unknown[]=[];host=document.createElement('div');document.body.append(host);root=createRoot(host);
+ await act(async()=>root?.render(<ReviewView cards={cards} onSubmit={async event=>{events.push(event);}}/>));
+ expect(host.textContent).not.toContain('秘密答案');
+ const node=host.querySelector('[data-testid="study-answer-input"]') as HTMLTextAreaElement;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')?.set?.call(node,'我的回答');node.dispatchEvent(new Event('input',{bubbles:true}));});
+ await act(async()=>{(host.querySelector('[data-testid="study-review-reveal"]') as HTMLButtonElement).click();});
+ expect(host.textContent).toContain('秘密答案');expect(host.textContent).toContain('我的回答');
+ await act(async()=>{const b=host.querySelector('[data-testid="study-review-submit-good"]') as HTMLButtonElement;b.click();b.click();});
+ expect(events).toHaveLength(1);expect(events[0]).toMatchObject({cardId:'a',rating:'good',responseText:'我的回答',mode:'recall'});
+ expect((events[0] as {clientEventId:string}).clientEventId).toBeTruthy();
+ expect(host.querySelector('h3')?.textContent).toBe('b');expect(node.value).toBe('');expect(host.textContent).not.toContain('秘密答案');
+});
+it('对比模式的说明不阻止自评；模板匹配有真实元数据配对和关键词槽位',async()=>{
+ const {ReviewView}=await import('../../components/study/review');const card={id:'x',title:'模板',prompt:'请按 {{keyword}} 写作',answer:'参考句',comparison:'区别说明',cardType:'basic',slots:{keyword:'环保'},letterType:'邀请信',paragraphPosition:'首段',sentenceFunction:'提出目的',course:{name:'英语'},sentences:[],tags:[],dueAt:'2026-10-13'} as unknown as CardDTO;
+ host=document.createElement('div');document.body.append(host);root=createRoot(host);await act(async()=>root?.render(<ReviewView cards={[card]} onSubmit={async()=>{}}/>));
+ const select=host.querySelector('[data-testid="study-task-mode"]') as HTMLSelectElement;
+ await act(async()=>{select.value='compare';select.dispatchEvent(new Event('change',{bubbles:true}));});
+ expect((host.querySelector('[data-testid="study-review-reveal"]') as HTMLButtonElement).disabled).toBe(false);
+ await act(async()=>{(host.querySelector('[data-testid="study-review-reveal"]') as HTMLButtonElement).click();});expect(host.textContent).toContain('区别说明');
+ await act(async()=>{select.value='template-match';select.dispatchEvent(new Event('change',{bubbles:true}));});
+ expect(host.querySelectorAll('[data-testid="study-match-choice"]').length).toBeGreaterThan(0);expect(host.textContent).toContain('环保');
+});

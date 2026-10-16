@@ -1,0 +1,60 @@
+name: Memory system Linux verification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: memory-linux-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install exact lockfile dependencies
+        run: npm ci
+      - name: Generate Linux-native and Alpine Prisma engines
+        run: npx prisma generate
+      - name: Full regression suite and study lint
+        run: |
+          npm test -- --maxWorkers=1 --reporter=dot
+          npx eslint src/app/api/study src/app/study src/components/study src/lib/study-*.ts public/study-sw.js e2e-memory playwright.memory.config.ts
+          python3 scripts/test-memory-runtime.py
+          git diff --check
+      - name: Complete Next production build
+        env:
+          DATABASE_URL: file:/tmp/memory-build-only.db
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: npm run build
+      - name: Prepare a clean exact-version runtime and build image
+        run: |
+          python3 scripts/prepare-next-runtime.py --context "${RUNNER_TEMP}/memory-runtime"
+          docker build --tag "memory-ci:${GITHUB_SHA}" "${RUNNER_TEMP}/memory-runtime"
+      - name: Install test browser on CI, not production
+        run: npx playwright install --with-deps chromium
+      - name: Authenticated UI, mobile and real offline E2E on isolated DB
+        run: python3 scripts/verify-memory-image.py --image "memory-ci:${GITHUB_SHA}"
+      - name: Export only the verified Linux image
+        run: |
+          mkdir -p "${RUNNER_TEMP}/memory-artifact"
+          docker save "memory-ci:${GITHUB_SHA}" | gzip > "${RUNNER_TEMP}/memory-artifact/image.tar.gz"
+          python3 -c 'import json,os,pathlib,subprocess; d=pathlib.Path(os.environ["RUNNER_TEMP"])/"memory-artifact"; image="memory-ci:"+os.environ["GITHUB_SHA"]; (d/"provenance.json").write_text(json.dumps({"commit":os.environ["GITHUB_SHA"],"image":image,"image_id":subprocess.check_output(["docker","image","inspect",image,"--format","{{.Id}}"],text=True).strip(),"verification":"unit tests, full production build, mounted fixture migrations, authenticated UI/mobile/offline E2E"},indent=2))'
+          cd "${RUNNER_TEMP}/memory-artifact"
+          sha256sum image.tar.gz > image.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: memory-linux-${{ github.sha }}
+          path: ${{ runner.temp }}/memory-artifact/
+          retention-days: 7
+          if-no-files-found: error

@@ -1,59 +1,42 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getStudyUser } from '@/lib/study-auth';
-
-const DEFAULT_COURSES = [
-  ['考研英语一', 'english_exam'],
-  ['高等数学', 'calculus'],
-  ['线性代数', 'linear_algebra'],
-  ['概率论与数理统计', 'probability'],
-  ['信号与系统', 'signals_systems'],
-] as const;
-
-async function ensureDefaults(userId: string) {
-  for (const [name, subjectKey] of DEFAULT_COURSES) {
-    await prisma.studyCourse.upsert({
-      where: { userId_name: { userId, name } },
-      update: {},
-      create: { userId, name, subjectKey },
-    });
-  }
-}
+import { apiError, ensureDefaultCourses, readJson, unauthorized } from '@/lib/study-backend-api';
+import { finiteInteger, optionalText, requiredText } from '@/lib/study-contract';
 
 export async function GET() {
   const user = await getStudyUser();
-  if (!user) return NextResponse.json({ message: 'Authentication required' }, { status: 401 });
-  await ensureDefaults(user.id);
-  const courses = await prisma.studyCourse.findMany({
-    where: { userId: user.id },
-    orderBy: { createdAt: 'asc' },
-    include: {
-      chapters: { orderBy: { order: 'asc' }, include: { _count: { select: { cards: true } } } },
-      _count: { select: { cards: true } },
-    },
-  });
-  return NextResponse.json(courses);
-}
-
-export async function POST(req: Request) {
-  const user = await getStudyUser();
-  if (!user) return NextResponse.json({ message: 'Authentication required' }, { status: 401 });
+  if (!user) return unauthorized();
   try {
-    const body = await req.json();
-    const name = String(body.name || '').trim();
-    if (!name) return NextResponse.json({ message: '课程名称不能为空' }, { status: 400 });
-    const course = await prisma.studyCourse.create({
-      data: {
-        userId: user.id,
-        name,
-        description: body.description ? String(body.description) : null,
-        subjectKey: body.subjectKey ? String(body.subjectKey) : null,
-        examYear: body.examYear ? Number(body.examYear) : null,
+    await ensureDefaultCourses(user.id);
+    const courses = await prisma.studyCourse.findMany({
+      where: { userId: user.id },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      include: {
+        chapters: { orderBy: [{ order: 'asc' }, { id: 'asc' }], include: { _count: { select: { cards: true } } } },
+        _count: { select: { cards: true } },
       },
     });
+    return NextResponse.json(courses);
+  } catch (error) {
+    return apiError(error, '读取课程失败');
+  }
+}
+
+export async function POST(request: Request) {
+  const user = await getStudyUser();
+  if (!user) return unauthorized();
+  try {
+    const body = await readJson<Record<string, unknown>>(request);
+    const name = requiredText(body.name, 'name');
+    const description = optionalText(body.description, 'description') ?? null;
+    const subjectKey = optionalText(body.subjectKey, 'subjectKey') ?? null;
+    const examYear = body.examYear === undefined || body.examYear === null
+      ? null
+      : finiteInteger(body.examYear, 'examYear', 1900, 3000);
+    const course = await prisma.studyCourse.create({ data: { userId: user.id, name, description, subjectKey, examYear } });
     return NextResponse.json(course, { status: 201 });
-  } catch (error: any) {
-    if (error?.code === 'P2002') return NextResponse.json({ message: '课程已存在' }, { status: 409 });
-    return NextResponse.json({ message: '创建课程失败' }, { status: 500 });
+  } catch (error) {
+    return apiError(error, '创建课程失败');
   }
 }

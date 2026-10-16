@@ -1,0 +1,19 @@
+FROM ghcr.io/wttwins/wrong-notebook@sha256:58512895a545030abe00ffc8f20a8409ae9908ebd0a24144f38617d112e88328
+
+# Build on a trusted workstation/CI runner, never on the small production VPS.
+# The base supplies Alpine Node and migration tooling, not application deps.
+# Keep the pinned Prisma CLI separate; replace the entire app runtime with
+# the exact dependencies traced by this build, with no inherited old chunks.
+RUN mkdir -p /app/migration-tools/node_modules \
+    && cp -a /app/node_modules/prisma /app/node_modules/@prisma /app/migration-tools/node_modules/ \
+    && rm -rf /app/.next /app/node_modules /app/public /app/prisma
+COPY --chown=nextjs:nodejs standalone /app
+COPY --chown=nextjs:nodejs static /app/.next/static
+COPY --chown=nextjs:nodejs public /app/public
+COPY --chown=nextjs:nodejs package.json /app/package.json
+COPY --chown=nextjs:nodejs prisma-client/client /app/node_modules/.prisma/client
+COPY --chown=nextjs:nodejs prisma /app/prisma
+COPY --chown=nextjs:nodejs --chmod=755 docker-entrypoint.sh /app/memory-entrypoint.sh
+ENV HOSTNAME=127.0.0.1 PORT=3100 NEXT_TELEMETRY_DISABLED=1
+ENTRYPOINT ["/app/memory-entrypoint.sh"]
+CMD ["node", "server.js"]

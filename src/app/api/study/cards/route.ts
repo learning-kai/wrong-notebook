@@ -1,74 +1,76 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getStudyUser } from '@/lib/study-auth';
-import { parseTags } from '@/lib/study-scheduler';
+import { apiError, cardInclude, findOwnedCourse, numericQuery, readJson, unauthorized } from '@/lib/study-backend-api';
+import { buildCardData, serializeCard } from '@/lib/study-backend';
+import { parseIsoDate, StudyValidationError } from '@/lib/study-contract';
 
-function serializeCard(card: any) {
-  return { ...card, tags: parseTags(card.tags) };
-}
-
-export async function GET(req: Request) {
+export async function GET(request: Request) {
   const user = await getStudyUser();
-  if (!user) return NextResponse.json({ message: 'Authentication required' }, { status: 401 });
-  const url = new URL(req.url);
-  const courseId = url.searchParams.get('courseId') || undefined;
-  const chapterId = url.searchParams.get('chapterId') || undefined;
-  const search = url.searchParams.get('search')?.trim();
-  const dueOnly = url.searchParams.get('dueOnly') === 'true';
-  const limit = Math.min(Number(url.searchParams.get('limit') || 100), 500);
-  const cards = await prisma.memoryCard.findMany({
-    where: {
-      userId: user.id,
-      ...(courseId ? { courseId } : {}),
-      ...(chapterId ? { chapterId } : {}),
-      ...(dueOnly ? { dueAt: { lte: new Date() }, suspended: false } : {}),
-      ...(search ? { OR: [{ title: { contains: search } }, { prompt: { contains: search } }, { answer: { contains: search } }] } : {}),
-    },
-    include: { course: true, chapter: true, _count: { select: { reviews: true } } },
-    orderBy: [{ dueAt: 'asc' }, { createdAt: 'desc' }],
-    take: limit,
-  });
-  return NextResponse.json(cards.map(serializeCard));
-}
-
-export async function POST(req: Request) {
-  const user = await getStudyUser();
-  if (!user) return NextResponse.json({ message: 'Authentication required' }, { status: 401 });
+  if (!user) return unauthorized();
   try {
-    const body = await req.json();
-    const title = String(body.title || '').trim();
-    const prompt = String(body.prompt || '').trim();
-    const answer = String(body.answer || '').trim();
-    const courseId = String(body.courseId || '');
-    if (!title || !prompt || !answer || !courseId) {
-      return NextResponse.json({ message: '标题、正面、答案和课程不能为空' }, { status: 400 });
-    }
-    const course = await prisma.studyCourse.findFirst({ where: { id: courseId, userId: user.id } });
+    const url = new URL(request.url);
+    const courseId = url.searchParams.get('courseId') || undefined;
+    const chapterId = url.searchParams.get('chapterId') || undefined;
+    const cardType = url.searchParams.get('cardType') || undefined;
+    const tag = url.searchParams.get('tag') || undefined;
+    const search = url.searchParams.get('search');
+    const limit = numericQuery(url.searchParams.get('limit'), 'limit', 100, 1, 500);
+    const offset = numericQuery(url.searchParams.get('offset'), 'offset', 0, 0, 1_000_000);
+    const suspendedParam = url.searchParams.get('suspended');
+    if (suspendedParam !== null && suspendedParam !== 'true' && suspendedParam !== 'false') throw new StudyValidationError('suspended无效', 'suspended');
+    const cards = await prisma.memoryCard.findMany({
+      where: {
+        userId: user.id,
+        ...(courseId ? { courseId } : {}),
+        ...(chapterId ? { chapterId } : {}),
+        ...(cardType ? { cardType } : {}),
+        ...(suspendedParam === null ? {} : { suspended: suspendedParam === 'true' }),
+        ...(search ? { OR: [
+          { title: { contains: search } }, { prompt: { contains: search } }, { answer: { contains: search } },
+          { formula: { contains: search } }, { source: { contains: search } }, { notes: { contains: search } },
+        ] } : {}),
+      },
+      include: cardInclude,
+      orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+    });
+    const filtered = tag ? cards.filter(card => {
+      try { return Array.isArray(JSON.parse(card.tags || '[]')) && JSON.parse(card.tags || '[]').includes(tag); } catch { return false; }
+    }) : cards;
+    const page = filtered.slice(offset, offset + limit);
+    // Only request one owned review per returned card, never the user's history.
+    const withReviews = page.length ? await prisma.memoryCard.findMany({
+      where: { userId: user.id, id: { in: page.map(card => card.id) } },
+      select: { id: true, reviews: { where: { userId: user.id }, orderBy: [{ reviewedAt: 'desc' }, { reviewOrder: 'desc' }, { id: 'desc' }], take: 1 } },
+    }) : [];
+    const latest = new Map(withReviews.map(card => [card.id, card.reviews[0] ?? null]));
+    return NextResponse.json(page.map(card => serializeCard(card as never, latest.get(card.id) as never ?? null)));
+  } catch (error) {
+    return apiError(error, '读取记忆卡失败');
+  }
+}
+
+export async function POST(request: Request) {
+  const user = await getStudyUser();
+  if (!user) return unauthorized();
+  try {
+    const body = await readJson<Record<string, unknown>>(request);
+    if (typeof body.courseId !== 'string' || !body.courseId) throw new StudyValidationError('courseId不能为空', 'courseId');
+    const course = await findOwnedCourse(user.id, body.courseId);
     if (!course) return NextResponse.json({ message: '课程不存在' }, { status: 404 });
-    if (body.chapterId) {
-      const chapter = await prisma.studyChapter.findFirst({ where: { id: String(body.chapterId), courseId } });
+    const data = buildCardData(body as never, body.courseId);
+    if (data.chapterId) {
+      const chapter = await prisma.studyChapter.findFirst({ where: { id: data.chapterId as string, courseId: body.courseId } });
       if (!chapter) return NextResponse.json({ message: '章节不属于该课程' }, { status: 400 });
     }
-    const card = await prisma.memoryCard.create({
-      data: {
-        userId: user.id,
-        courseId,
-        chapterId: body.chapterId ? String(body.chapterId) : null,
-        title,
-        cardType: String(body.cardType || 'basic'),
-        prompt,
-        answer,
-        explanation: body.explanation ? String(body.explanation) : null,
-        conditions: body.conditions ? String(body.conditions) : null,
-        pitfalls: body.pitfalls ? String(body.pitfalls) : null,
-        tags: JSON.stringify(Array.isArray(body.tags) ? body.tags : []),
-        source: body.source ? String(body.source) : null,
-        notes: body.notes ? String(body.notes) : null,
-      },
-      include: { course: true, chapter: true, _count: { select: { reviews: true } } },
-    });
-    return NextResponse.json(serializeCard(card), { status: 201 });
+    if (body.dueAt !== undefined) data.dueAt = parseIsoDate(body.dueAt, 'dueAt', false);
+    if (body.suspended !== undefined) {
+      if (typeof body.suspended !== 'boolean') throw new StudyValidationError('suspended必须是布尔值', 'suspended');
+      data.suspended = body.suspended;
+    }
+    const card = await prisma.memoryCard.create({ data: { ...data, userId: user.id } as never, include: cardInclude });
+    return NextResponse.json(serializeCard(card as never), { status: 201 });
   } catch (error) {
-    return NextResponse.json({ message: '创建记忆卡失败' }, { status: 500 });
+    return apiError(error, '创建记忆卡失败');
   }
 }

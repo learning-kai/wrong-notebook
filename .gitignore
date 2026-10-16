@@ -66,6 +66,10 @@ dist-scripts
 test_output*.txt
 upload_test_output*.txt
 
+# Python test-helper bytecode
+__pycache__/
+*.pyc
+
 # data
 /data/
 .next-prebuilt/

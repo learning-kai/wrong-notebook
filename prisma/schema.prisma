@@ -32,6 +32,7 @@ model User {
   studyCourses StudyCourse[]
   memoryCards MemoryCard[]
   memoryReviews MemoryReview[]
+  studySettings StudySettings?
 }
 
 // 统一知识点标签表 (支持无限层级)
@@ -174,6 +175,25 @@ model StudyChapter {
   @@index([courseId, order])
 }
 
+model StudySettings {
+  userId              String   @id
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dailyNewLimit       Int      @default(20)
+  dailyReviewLimit    Int      @default(100)
+  relearnMinutes      Int      @default(10)
+  initialGoodDays     Int      @default(1)
+  initialEasyDays     Int      @default(4)
+  hardMultiplier      Float    @default(1.2)
+  easyMultiplier      Float    @default(1.3)
+  maxIntervalDays     Int      @default(365)
+  examDate            DateTime?
+  timezone            String   @default("Asia/Shanghai")
+  theme               String   @default("system")
+  defaultsInitialized Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
 model MemoryCard {
   id            String        @id @default(cuid())
   userId        String
@@ -189,6 +209,21 @@ model MemoryCard {
   explanation   String?
   conditions    String?
   pitfalls      String?
+  formula       String?
+  roc           String?
+  precautions   String?
+  steps         String?
+  initialConditions String?
+  finalConditions String?
+  chinese       String?
+  english       String?
+  letterType    String?
+  paragraphPosition String?
+  sentenceFunction String?
+  clozeText     String?
+  comparison    String?
+  sentences     String?
+  slots         String?
   tags          String?       // JSON array for flexible import/export
   source        String?
   notes         String?
@@ -218,9 +253,13 @@ model MemoryReview {
   previousDueAt DateTime?
   nextDueAt     DateTime?
   responseMs    Int?
+  responseText  String?
+  clientEventId String?
   note          String?
   reviewedAt    DateTime    @default(now())
+  reviewOrder   Int         @default(0) // Per-card serialization order for equal observed timestamps.
 
   @@index([userId, reviewedAt])
   @@index([cardId, reviewedAt])
+  @@unique([userId, clientEventId])
 }

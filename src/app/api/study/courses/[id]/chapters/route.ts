@@ -1,23 +1,21 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getStudyUser } from '@/lib/study-auth';
+import { apiError, findOwnedCourse, readJson, unauthorized } from '@/lib/study-backend-api';
+import { finiteInteger, requiredText } from '@/lib/study-contract';
 
-export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getStudyUser();
-  if (!user) return NextResponse.json({ message: 'Authentication required' }, { status: 401 });
-  const { id: courseId } = await params;
-  const course = await prisma.studyCourse.findFirst({ where: { id: courseId, userId: user.id } });
-  if (!course) return NextResponse.json({ message: '课程不存在' }, { status: 404 });
-  const body = await req.json();
-  const name = String(body.name || '').trim();
-  if (!name) return NextResponse.json({ message: '章节名称不能为空' }, { status: 400 });
+  if (!user) return unauthorized();
   try {
-    const chapter = await prisma.studyChapter.create({
-      data: { courseId, name, order: Number(body.order || 0) },
-    });
+    const { id: courseId } = await params;
+    if (!(await findOwnedCourse(user.id, courseId))) return NextResponse.json({ message: '课程不存在' }, { status: 404 });
+    const body = await readJson<Record<string, unknown>>(request);
+    const name = requiredText(body.name, 'name');
+    const order = body.order === undefined ? 0 : finiteInteger(body.order, 'order', 0, 1_000_000);
+    const chapter = await prisma.studyChapter.create({ data: { courseId, name, order } });
     return NextResponse.json(chapter, { status: 201 });
-  } catch (error: any) {
-    if (error?.code === 'P2002') return NextResponse.json({ message: '章节已存在' }, { status: 409 });
-    return NextResponse.json({ message: '创建章节失败' }, { status: 500 });
+  } catch (error) {
+    return apiError(error, '创建章节失败');
   }
 }
