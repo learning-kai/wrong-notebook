@@ -28,16 +28,16 @@ export function ReviewHome({ stats, courses, scope, onScope, queueMode, onQueueM
         </section>
         <div className="study-toolbar">
             <div className="study-chips" role="group" aria-label="复习范围">
-                {QUEUES.map(([id, label]) => <button key={id} type="button" data-testid={`study-queue-${id}`} aria-pressed={queueMode === id} onClick={() => onQueueMode(id)}>{label}</button>)}
+                {QUEUES.map(([id, label]) => <button key={id} type="button" disabled={loading} data-testid={`study-queue-${id}`} aria-pressed={queueMode === id} onClick={() => onQueueMode(id)}>{label}</button>)}
             </div>
             <label className="study-inline">课程
-                <select data-testid="course-select" value={scope.courseId} onChange={e => onScope({ ...scope, courseId: e.target.value, chapterId: '' })}>
+                <select data-testid="course-select" disabled={loading} value={scope.courseId} onChange={e => onScope({ ...scope, courseId: e.target.value, chapterId: '' })}>
                     <option value="">全部课程</option>
                     {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
             </label>
             {course && <label className="study-inline">章节
-                <select data-testid="chapter-select" value={scope.chapterId} onChange={e => onScope({ ...scope, chapterId: e.target.value })}>
+                <select data-testid="chapter-select" disabled={loading} value={scope.chapterId} onChange={e => onScope({ ...scope, chapterId: e.target.value })}>
                     <option value="">全部章节</option>
                     {course.chapters.map(ch => <option key={ch.id} value={ch.id}>{ch.name}</option>)}
                 </select>
