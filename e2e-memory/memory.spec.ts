@@ -821,7 +821,7 @@ test('real SW/KaTeX offline navigation, closed-page IndexedDB persistence, once-
   await switchUser(a.context, b.user);
   page = await a.context.newPage();
   await page.goto('/study/offline');
-  await expect(page.getByRole('alert')).toContainText('账号已切换');
+  await expect(page.locator('p.study-error')).toContainText('账号已切换');
   await expect(page.locator('.study-review-card')).toHaveCount(0);
   expect(sent).toHaveLength(1);
   expect(await localValue<Outbox>(page, localKey(a.user.id, 'outbox'))).toEqual(heldA);
@@ -851,7 +851,7 @@ test('real SW/KaTeX offline navigation, closed-page IndexedDB persistence, once-
     return response.status;
   });
   expect(logoutStatus).toBe(200);
-  await expect(page.getByRole('alert')).toContainText('已退出登录');
+  await expect(page.locator('p.study-error')).toContainText('已退出登录');
   await expect(page.locator('.study-review-card')).toHaveCount(0);
   expect(await localValue(page, localKey('_runtime', 'active-user'))).toBeUndefined();
   expect(await localValue(page, localKey(b.user.id, 'snapshot'))).toBeUndefined();
