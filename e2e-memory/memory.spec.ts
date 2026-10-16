@@ -178,6 +178,11 @@ export async function openStudy(page: Page) {
 /** App loaded identity/connection, regardless of which tab is active. */
 export async function ready(page: Page) {
   await expect(page.getByTestId('study-connectivity')).toContainText('在线');
+  // Wait until the workspace finished loading: the tab nav is present and no
+  // tab shows the loading placeholder. This is the cache/sync synchronization
+  // point the old course-select readiness used to provide.
+  await expect(page.getByTestId('study-tab-review')).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: '正在载入' })).toHaveCount(0);
 }
 export async function tab(page: Page, name: string) {
   await page.getByTestId(`study-tab-${name}`).click();
@@ -849,6 +854,7 @@ test('real SW/KaTeX offline navigation, closed-page IndexedDB persistence, once-
   expect(await localValue(page, localKey(a.user.id, 'snapshot'))).toBeUndefined();
   await openStudy(page);
   await shellReady(page);
+  await expect.poll(async () => (await localValue<{ cards: CardDTO[] }>(page, localKey(b.user.id, 'snapshot')))?.cards.map(c => c.id)).toEqual(cardsB.map(c => c.id));
   const snapshotB = await localValue<{ cards: CardDTO[] }>(page, localKey(b.user.id, 'snapshot'));
   expect(snapshotB?.cards.map(c => c.id)).toEqual(cardsB.map(c => c.id));
   expect(snapshotB?.cards.every(c => c.userId === b.user.id)).toBe(true);
