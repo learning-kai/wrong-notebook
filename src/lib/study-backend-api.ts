@@ -5,7 +5,7 @@ import { StudyValidationError, parseJsonBody, parseIsoDate, type StudySettingsDT
 import { serializeCard, serializeReview, localDateKey, getDateRangeForTimezone, calculateStudyStats, buildDueQueue, schedulerFromSettings, type StudyCardRecord, type StudyReviewRecord } from '@/lib/study-backend';
 
 export const cardInclude = {
-  course: { select: { id: true, name: true } },
+  course: { select: { id: true, name: true, subjectKey: true } },
   chapter: { select: { id: true, name: true } },
 } as const;
 

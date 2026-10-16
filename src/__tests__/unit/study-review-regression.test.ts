@@ -52,8 +52,8 @@ describe('review regression with real SQLite', () => {
   });
 
   it('serializes review writes from two independent Prisma clients', async () => {
-    const other = fixture.connect();
-    const original = fixture.db;
+    const other = fixture!.connect();
+    const original = fixture!.db;
     const originalTransaction = original.$transaction.bind(original) as (...args: unknown[]) => Promise<unknown>;
     const otherTransaction = other.$transaction.bind(other) as (...args: unknown[]) => Promise<unknown>;
     let index = 0;

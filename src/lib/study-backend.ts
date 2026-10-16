@@ -54,7 +54,7 @@ export type StudyCardRecord = {
   suspended: boolean;
   createdAt: Date;
   updatedAt: Date;
-  course: { id: string; name: string };
+  course: { id: string; name: string; subjectKey?: string | null };
   chapter: { id: string; name: string } | null;
 };
 

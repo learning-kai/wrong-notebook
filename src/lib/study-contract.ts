@@ -59,7 +59,7 @@ export type CardDTO = {
   suspended: boolean;
   createdAt: string;
   updatedAt: string;
-  course: { id: string; name: string };
+  course: { id: string; name: string; subjectKey?: string | null };
   chapter: { id: string; name: string } | null;
   latestReview?: ReviewDTO | null;
 };

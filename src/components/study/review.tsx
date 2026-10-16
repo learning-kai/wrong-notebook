@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CardDTO } from './types';
 import { completeCard, startSession } from './session';
 import { buildTrainingTask, TRAINING_MODES } from '@/lib/study-training';
+import { subjectModes, subjectProfile } from '@/lib/study-subject-profiles';
 import { StudyMarkdown } from './study-markdown';
 import type { Rating, ReviewEvent } from '@/lib/study-offline';
 type Mode = typeof TRAINING_MODES[number]['id'];
@@ -25,8 +26,17 @@ export function ReviewView({ cards, onSubmit }: {
     const eventId = useRef('');
     const started = useRef(Date.now());
     const card = session.queue[0];
+    // Training modes follow the card's subject: English writing is not recalled
+    // like a formula, so do not offer every mode for every course.
+    const availableModes = useMemo(() => {
+        const allowed = new Set(subjectModes(subjectProfile(card?.course?.subjectKey)));
+        const list = TRAINING_MODES.filter(m => allowed.has(m.id));
+        return list.length ? list : TRAINING_MODES;
+    }, [card?.course?.subjectKey]);
     useEffect(() => { setSession(startSession(cards)); }, [cards]);
     useEffect(() => { setAnswer(''); setRevealed(false); setError(''); setSlots({}); setOrder([]); setSelected([]); setMatches({}); attempt.current = null; eventId.current = crypto.randomUUID(); started.current = Date.now(); }, [card?.id, mode]);
+    // If the current mode is not valid for the newly loaded card's subject, reset it.
+    useEffect(() => { if (!availableModes.some(m => m.id === mode)) setMode(availableModes[0].id); }, [availableModes, mode]);
     const task = useMemo(() => {
         if (!card)
             return null;
@@ -70,7 +80,7 @@ export function ReviewView({ cards, onSubmit }: {
     }
     function move(position: number, delta: number) { const next = [...itemOrder], target = position + delta; if (target < 0 || target >= next.length)
         return; [next[position], next[target]] = [next[target], next[position]]; setOrder(next); }
-    return <section className="study-panel"><div className="study-section-head"><div><h2>主动回忆训练</h2><p className="study-muted">{session.completed} / {session.total} 已完成 · 本轮队列保持稳定</p></div><label>训练任务<select data-testid="study-task-mode" value={mode} disabled={busy} onChange={e => setMode(e.target.value as Mode)}>{TRAINING_MODES.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}</select></label></div>
+    return <section className="study-panel"><div className="study-section-head"><div><h2>主动回忆训练</h2><p className="study-muted">{session.completed} / {session.total} 已完成 · 本轮队列保持稳定{card ? ` · 科目模板：${subjectProfile(card.course?.subjectKey).label}` : ''}</p></div><label>训练任务<select data-testid="study-task-mode" value={mode} disabled={busy} onChange={e => setMode(e.target.value as Mode)}>{availableModes.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}</select></label></div>
     {card && task ? <><div className="study-progress" role="progressbar" aria-label="本轮进度" aria-valuemin={0} aria-valuenow={session.completed} aria-valuemax={session.total}><span style={{ width: `${session.total ? session.completed / session.total * 100 : 0}%` }}/></div>
     <article className="study-review-card"><p className="study-eyebrow">{card.course.name}{card.chapter ? ` · ${card.chapter.name}` : ''} · 下次复习 {new Date(card.dueAt).toLocaleString()}</p><h3>{card.title}</h3>
       {!!keywordNames.length && <fieldset disabled={busy || revealed}><legend>显式关键词槽位（仅替换本次任务，不修改卡片）</legend><div className="study-form-grid">{keywordNames.map(key => <label key={key}>{key}<input value={slots[key] ?? card.slots?.[key] ?? ''} onChange={e => setSlots({ ...slots, [key]: e.target.value })}/></label>)}</div></fieldset>}
