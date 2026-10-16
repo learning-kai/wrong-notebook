@@ -14,9 +14,10 @@ import { GET as backupGet, POST as backupPost } from '@/app/api/study/backup/rou
 import { GET as coursesGet } from '@/app/api/study/courses/route';
 import { GET as settingsGet } from '@/app/api/study/settings/route';
 
-let fixture: ReturnType<typeof createStudySqlite>;
+let fixture: ReturnType<typeof createStudySqlite> | undefined;
 beforeAll(() => { fixture = createStudySqlite(); state.db = fixture.db; });
-afterAll(async () => { await fixture.close(); });
+// Do not mask a beforeAll failure with a secondary TypeError.
+afterAll(async () => { await fixture?.close(); });
 beforeEach(async () => { state.userId = 'user-a'; await seedStudy(state.db); });
 
 async function json(response: Response) { return response.json() as Promise<any>; }

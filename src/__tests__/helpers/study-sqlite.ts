@@ -1,11 +1,14 @@
 import { PrismaClient } from '@prisma/client';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 /** Real isolated SQLite schema; never uses DATABASE_URL or the application DB. */
 export function createStudySqlite() {
-  const directory = mkdtempSync(join(process.env.TMPDIR ?? '/home/admin/.hermes/cache/scratch', 'study-review-'));
+  // Use the platform temp dir (os.tmpdir honours TMPDIR/TEMP/TMP); never a
+  // workstation-specific absolute path, which would break CI runners.
+  const directory = mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), 'study-review-'));
   const path = join(directory, 'test.db');
   const sql = execFileSync(process.execPath, [resolve('node_modules/prisma/build/index.js'), 'migrate', 'diff', '--from-empty', '--to-schema-datamodel', resolve('prisma/schema.prisma'), '--script'], { encoding: 'utf8', env: { ...process.env, DATABASE_URL: `file:${path}` } });
   execFileSync('python3', ['-c', 'import sqlite3,sys; db=sqlite3.connect(sys.argv[1]); db.executescript(sys.stdin.read()); db.close()', path], { input: sql });
