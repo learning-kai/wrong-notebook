@@ -175,12 +175,15 @@ export async function openStudy(page: Page) {
 }
 export async function ready(page: Page) {
   await expect(page.getByTestId('course-select')).toBeEnabled();
-  await expect(page.locator('.study-header').getByRole('button', { name: '刷新', exact: true })).toBeEnabled();
   await expect(page.getByTestId('study-connectivity')).toContainText('在线');
 }
 export async function tab(page: Page, name: string) {
   await page.getByTestId(`study-tab-${name}`).click();
   await expect(page.getByTestId(`study-tab-${name}`)).toHaveAttribute('aria-current', 'true');
+}
+/** Card-management sub-tabs: 卡片 / 课程与章节 / 导入 / 完整备份. */
+export async function cardsTab(page: Page, label: string) {
+  await page.getByRole('button', { name: label, exact: true }).click();
 }
 export async function noOverflow(page: Page) {
   const metrics = await page.evaluate(() => ({
@@ -329,12 +332,13 @@ test('desktop/mobile UI CRUD, all fields, stable three-card review, refreshed hi
   await openStudy(page);
   expect(await allCards(a.context), 'opening study must not insert samples').toEqual([]);
   await noOverflow(page);
-  await tab(page, 'courses');
+  await tab(page, 'cards');
+  await cardsTab(page, '课程与章节');
   await page.getByTestId('course-name').fill('UI signal course');
   await page.getByLabel('考试年份（可选）', { exact: true }).fill('2030');
   const course = await uiWrite<Course>(page, '/courses', 'POST', () => page.getByTestId('course-create').click());
   await expect(page.getByTestId('course-name')).toHaveValue('');
-  await page.getByTestId('course-select').selectOption(course.id);
+  await page.getByTestId(`course-tile-${course.id}`).click();
   await page.getByLabel('新章节名称', { exact: true }).fill('UI initial chapter');
   const chapter = await uiWrite<{ id: string }>(page, `/courses/${course.id}/chapters`, 'POST', () => page.getByRole('button', { name: '新建章节', exact: true }).click());
   await expect(page.getByLabel('新章节名称', { exact: true })).toHaveValue('');
@@ -347,11 +351,10 @@ test('desktop/mobile UI CRUD, all fields, stable three-card review, refreshed hi
   await dialogs(page, ['UI edited chapter'], async () => {
     await uiWrite(page, `/chapters/${chapter.id}`, 'PATCH', () => page.getByRole('button', { name: '编辑章节', exact: true }).click());
   });
-  await expect(page.getByTestId('chapter-select').locator(`option[value="${chapter.id}"]`)).toHaveText('UI edited chapter');
+  await expect(page.getByTestId(`chapter-delete-${chapter.id}`)).toBeVisible();
   const courses = await api<Course[]>(a.context, '/courses');
   expect(courses.find(c => c.id === course.id)).toMatchObject({ name: 'UI signal course edited', examYear: 2031, chapters: [{ id: chapter.id, name: 'UI edited chapter' }] });
-  await page.getByTestId('chapter-select').selectOption(chapter.id);
-  await tab(page, 'cards');
+  await cardsTab(page, '卡片');
   const cards: CardDTO[] = [];
   for (let i = 0; i < 3; i++) {
     const fields = fullContent(`UI card ${i + 1}`);
@@ -386,8 +389,8 @@ test('desktop/mobile UI CRUD, all fields, stable three-card review, refreshed hi
   await noOverflow(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await noOverflow(page);
-  await tab(page, 'training');
-  await page.getByTestId('study-queue-mode').selectOption('all');
+  await tab(page, 'review');
+  await page.getByTestId('study-queue-all').click();
   const queue = await api<CardDTO[]>(a.context, `/review?mode=all&courseId=${course.id}&chapterId=${chapter.id}`);
   expect(queue.map(c => c.id)).toEqual(cards.map(c => c.id));
   const answers = cards.map((_, i) => `UI independently recalled ${i + 1}\n${String.raw`\nu`}`);
@@ -408,6 +411,7 @@ test('desktop/mobile UI CRUD, all fields, stable three-card review, refreshed hi
   await page.reload();
   await ready(page);
   await tab(page, 'cards');
+  await cardsTab(page, '卡片');
   await page.getByTestId(`card-history-${cards[0].id}`).click();
   await expect(page.getByRole('heading', { name: `${cards[0].title} · 详情与复习历史`, exact: true })).toBeVisible();
   await expect(page.locator('table tbody tr')).toHaveCount(1);
@@ -423,8 +427,9 @@ test('desktop/mobile UI CRUD, all fields, stable three-card review, refreshed hi
   await expect(page.getByRole('button', { name: '按日查看', exact: true })).toBeVisible();
   await noOverflow(page);
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await tab(page, 'courses');
-  await page.getByTestId('course-select').selectOption(course.id);
+  await tab(page, 'cards');
+  await cardsTab(page, '课程与章节');
+  await page.getByTestId(`course-tile-${course.id}`).click();
   await dialogs(page, [''], async () => { await uiWrite(page, `/chapters/${chapter.id}`, 'DELETE', () => page.getByTestId(`chapter-delete-${chapter.id}`).click()); });
   await expect(page.getByTestId(`chapter-delete-${chapter.id}`)).toHaveCount(0);
   expect((await detail(a.context, cards[0].id)).chapterId).toBeNull();
@@ -440,7 +445,8 @@ test('UI malformed/quoted multiline CSV mapping, confirmation, dedupe, three exa
   const course = await api<Course>(a.context, '/courses', 'POST', { name: 'Transfer fixture', examYear: 2030 });
   await openStudy(a.page);
   await a.page.getByTestId('course-select').selectOption(course.id);
-  await tab(a.page, 'import');
+  await tab(a.page, 'cards');
+  await cardsTab(a.page, '导入 / 导出');
   const initial = await dbCounts(db, a.user.id);
   await a.page.getByTestId('study-import-format').selectOption('csv');
   await a.page.getByTestId('study-import-data').fill('title,prompt,answer\n"Unclosed,question,answer');
@@ -523,7 +529,8 @@ test('UI malformed/quoted multiline CSV mapping, confirmation, dedupe, three exa
     cardId: cards[0].id, rating: 'good', mode: 'recall', responseText: 'Roundtrip review\n' + String.raw`\nu`, responseMs: 1234,
     clientEventId: randomUUID(), reviewedAt: new Date().toISOString(),
   });
-  await tab(a.page, 'backup');
+  await tab(a.page, 'cards');
+  await cardsTab(a.page, '完整备份');
   const backupText = await downloadText(a.page, '下载完整备份 JSON');
   const backup = JSON.parse(backupText) as Backup;
   expect(backup.schemaVersion).toBe(1);
@@ -533,7 +540,8 @@ test('UI malformed/quoted multiline CSV mapping, confirmation, dedupe, three exa
   expect(backupText).not.toMatch(/"(?:password|sessionToken|accessToken|refreshToken)"\s*:/);
   await openStudy(b.page);
   const beforeB = await dbCounts(db, b.user.id);
-  await tab(b.page, 'backup');
+  await tab(b.page, 'cards');
+  await cardsTab(b.page, '完整备份');
   await b.page.getByTestId('backup-data').fill(backupText);
   await expect(b.page.getByTestId('backup-restore')).toBeDisabled();
   const restorePreview = await uiWrite<{ errors: unknown[]; counts: { cards: number; reviews: number } }>(b.page, '/backup', 'POST', () => b.page.getByTestId('backup-preview').click());
@@ -619,8 +627,8 @@ test('UI quota/theme/exam settings, all 18 real training modes, three stable rat
   await expect(page.getByTestId('settings-theme')).toHaveValue('dark');
   await page.getByTestId('course-select').selectOption(seeded.course.id);
   await page.getByTestId('chapter-select').selectOption(seeded.chapter.id);
-  await tab(page, 'training');
-  await page.getByTestId('study-queue-mode').selectOption('all');
+  await tab(page, 'review');
+  await page.getByTestId('study-queue-all').click();
   const taskModes = ['recall', 'zh-en', 'en-zh', 'formula', 'cloze', 'formula-cloze',
     'condition-conclusion', 'conclusion-condition', 'compare', 'steps', 'paragraph',
     'sentence-order', 'sentence-compose', 'template-match', 'transform', 'inverse-transform', 'roc', 'initial-final'];
@@ -676,7 +684,7 @@ test('UI quota/theme/exam settings, all 18 real training modes, three stable rat
   await assertRated(a.context, seeded.cards.map(c => c.id), answers);
   const minimalCourse = await api<Course>(a.context, '/courses', 'POST', { name: 'Unavailable mode' });
   await api(a.context, '/cards', 'POST', { courseId: minimalCourse.id, title: 'No invented formula', prompt: 'Real question', answer: 'Real answer' });
-  await page.locator('.study-header').getByRole('button', { name: '刷新', exact: true }).click();
+  await page.getByRole('button', { name: '刷新队列', exact: true }).click();
   await ready(page);
   await page.getByTestId('course-select').selectOption(minimalCourse.id);
   await expect(page.locator('.study-review-card h3')).toHaveText('No invented formula');
@@ -685,7 +693,8 @@ test('UI quota/theme/exam settings, all 18 real training modes, three stable rat
   await expect(page.locator('.study-review-card')).toContainText('模式不可用：缺少formula');
   const beforeSamples = await allCards(a.context);
   const beforeSampleCount = beforeSamples.length;
-  await tab(page, 'import');
+  await tab(page, 'cards');
+  await cardsTab(page, '导入 / 导出');
   const samplePanel = page.locator('section.study-panel').filter({ has: page.getByRole('heading', { name: '可选的小量示例', exact: true }) });
   const examples = await api<{ examples: { id: string; title: string }[] }>(a.context, '/samples');
   expect(examples.examples.length).toBeGreaterThan(0);
