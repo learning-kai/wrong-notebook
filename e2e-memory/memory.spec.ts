@@ -172,9 +172,11 @@ export async function openStudy(page: Page) {
   expect(response?.status()).toBe(200);
   await expect(page.getByRole('heading', { name: '记忆训练', exact: true })).toBeVisible();
   await ready(page);
-}
-export async function ready(page: Page) {
+  // Review is the default tab and owns the course scope selector.
   await expect(page.getByTestId('course-select')).toBeEnabled();
+}
+/** App loaded identity/connection, regardless of which tab is active. */
+export async function ready(page: Page) {
   await expect(page.getByTestId('study-connectivity')).toContainText('在线');
 }
 export async function tab(page: Page, name: string) {
@@ -183,7 +185,10 @@ export async function tab(page: Page, name: string) {
 }
 /** Card-management sub-tabs: 卡片 / 课程与章节 / 导入 / 完整备份. */
 export async function cardsTab(page: Page, label: string) {
-  await page.getByRole('button', { name: label, exact: true }).click();
+  const id = { '卡片': 'manage', '课程与章节': 'courses', '导入 / 导出': 'import', '完整备份': 'backup' }[label];
+  if (!id) throw new Error(`Unknown cards sub-tab: ${label}`);
+  await page.getByTestId(`cards-sub-${id}`).click();
+  await expect(page.getByTestId(`cards-sub-${id}`)).toHaveAttribute('aria-current', 'true');
 }
 export async function noOverflow(page: Page) {
   const metrics = await page.evaluate(() => ({
@@ -435,6 +440,7 @@ test('desktop/mobile UI CRUD, all fields, stable three-card review, refreshed hi
   expect((await detail(a.context, cards[0].id)).chapterId).toBeNull();
   expect(await allCards(a.context)).toHaveLength(3);
   await dialogs(page, [''], async () => { await uiWrite(page, `/courses/${course.id}`, 'DELETE', () => page.getByRole('button', { name: '删除课程', exact: true }).click()); });
+  await tab(page, 'review');
   await expect(page.getByTestId('course-select').locator(`option[value="${course.id}"]`)).toHaveCount(0);
   expect(await allCards(a.context)).toEqual([]);
   expect(await db.memoryReview.count({ where: { userId: a.user.id } })).toBe(0);
@@ -625,9 +631,9 @@ test('UI quota/theme/exam settings, all 18 real training modes, three stable rat
   await expect(page.getByTestId('settings-dailyReviewLimit')).toHaveValue('5');
   await expect(page.getByTestId('settings-examDate')).toHaveValue('2030-12-20');
   await expect(page.getByTestId('settings-theme')).toHaveValue('dark');
+  await tab(page, 'review');
   await page.getByTestId('course-select').selectOption(seeded.course.id);
   await page.getByTestId('chapter-select').selectOption(seeded.chapter.id);
-  await tab(page, 'review');
   await page.getByTestId('study-queue-all').click();
   const taskModes = ['recall', 'zh-en', 'en-zh', 'formula', 'cloze', 'formula-cloze',
     'condition-conclusion', 'conclusion-condition', 'compare', 'steps', 'paragraph',
