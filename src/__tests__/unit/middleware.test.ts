@@ -59,6 +59,15 @@ describe('middleware', () => {
             expect(response).toBeNull();
         });
 
+        it('应该允许未认证用户访问离线壳与 SW（离线登出后仍可打开）', async () => {
+            vi.mocked(getToken).mockResolvedValue(null);
+
+            for (const path of ['/study/offline', '/study-sw.js']) {
+                const response = await middleware(new NextRequest(`http://localhost:3000${path}`));
+                expect(response, path).toBeNull();
+            }
+        });
+
         it('应该保留查询参数在 callbackUrl 中', async () => {
             vi.mocked(getToken).mockResolvedValue(null);
 

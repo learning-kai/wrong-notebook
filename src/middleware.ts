@@ -19,6 +19,11 @@ export async function middleware(req: NextRequest) {
         const isAuth = !!token;
         const isAuthPage = req.nextUrl.pathname.startsWith("/login") || req.nextUrl.pathname.startsWith("/register");
         const isAdminPage = req.nextUrl.pathname.startsWith("/admin");
+        // The offline shell and its service worker hold NO user data: the shell
+        // reads only the per-user IndexedDB cache (cleared on logout) and the SW
+        // contains no secrets. They must load without a session so an already
+        // installed offline shell still opens after logout while offline.
+        const isOfflineShell = req.nextUrl.pathname === "/study/offline" || req.nextUrl.pathname === "/study-sw.js";
 
         logger.debug({
             path: req.nextUrl.pathname,
@@ -33,6 +38,10 @@ export async function middleware(req: NextRequest) {
                 logger.debug('Redirecting authenticated user to /');
                 return NextResponse.redirect(new URL("/", req.url));
             }
+            return null;
+        }
+
+        if (isOfflineShell) {
             return null;
         }
 
