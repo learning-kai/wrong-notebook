@@ -36,7 +36,7 @@ function inside(root: string, child: string) {
   return !!rel && !rel.startsWith(`..${sep}`) && rel !== '..' && !isAbsolute(rel);
 }
 
-function temporaryDatabaseURL() {
+export function temporaryDatabaseURL() {
   const value = process.env.MEMORY_E2E_DATABASE_URL;
   if (!value || !value.startsWith('file:/') || /[?#]/.test(value)) {
     throw new Error('Set MEMORY_E2E_DATABASE_URL=file:/absolute/temp-directory/test.db (already migrated)');
@@ -44,7 +44,12 @@ function temporaryDatabaseURL() {
   const filename = value.slice('file:'.length);
   if (!isAbsolute(filename) || !existsSync(filename)) throw new Error('The migrated temporary DB must already exist');
   const actual = realpathSync(filename);
-  const roots = [...new Set([tmpdir(), '/tmp'])].filter(existsSync).map(root => realpathSync(root));
+  // GitHub Actions keeps its scratch space in RUNNER_TEMP, which is not under
+  // /tmp. Accept every designated temp root while still rejecting anything
+  // outside a temp directory or inside the repository.
+  const roots = [...new Set([tmpdir(), '/tmp', process.env.RUNNER_TEMP, process.env.TMPDIR])]
+    .filter((root): root is string => Boolean(root) && existsSync(root as string))
+    .map(root => realpathSync(root));
   if (!roots.some(root => inside(root, actual as string)) || inside(realpathSync(process.cwd()), actual)
       || !statSync(actual).isFile() || actual === join(dirname(actual), 'dev.db')) {
     throw new Error('Refusing DB outside a temporary directory, inside the repository, or named dev.db');
