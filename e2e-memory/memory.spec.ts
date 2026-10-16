@@ -290,11 +290,17 @@ async function dialogs(page: Page, replies: string[], action: () => Promise<unkn
 }
 async function createUICard(page: Page, fields: Content, courseId: string, chapterId: string, ordinal: number) {
   await page.getByTestId('card-new').click();
-  await page.getByLabel('所属课程', { exact: true }).selectOption(courseId);
+  await page.getByTestId('card-course').selectOption(courseId);
   await page.getByLabel('所属章节', { exact: true }).selectOption(chapterId);
-  await page.getByLabel('卡片类型', { exact: true }).fill(fields.cardType);
+  // Card type is a subject-aware <select>; pick it if offered, else rely on the
+  // subject default. Content fields not shown by the subject profile are only
+  // filled when present, so the helper stays valid for any course subject.
+  const typeSelect = page.getByTestId('card-type');
+  const options = await typeSelect.locator('option').evaluateAll(list => list.map(o => (o as HTMLOptionElement).value));
+  if (options.includes(fields.cardType)) await typeSelect.selectOption(fields.cardType);
   for (const key of CONTENT_FIELDS.filter(key => !['cardType', 'tags', 'sentences', 'slots'].includes(key))) {
-    await page.getByTestId(`card-${key}`).fill(String(fields[key] ?? ''));
+    const field = page.getByTestId(`card-${key}`);
+    if (await field.count()) await field.fill(String(fields[key] ?? ''));
   }
   for (const key of ['tags', 'sentences', 'slots'] as const) await page.getByTestId(`card-${key}`).fill(JSON.stringify(fields[key]));
   await page.getByTestId('card-dueAt').fill(`2020-01-01T00:0${ordinal}`);
