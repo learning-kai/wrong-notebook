@@ -545,11 +545,12 @@ test('UI malformed/quoted multiline CSV mapping, confirmation, dedupe, three exa
   expect(backup.settings.userId).toBe(a.user.id);
   expect(backupText).not.toMatch(/"(?:password|sessionToken|accessToken|refreshToken)"\s*:/);
   await openStudy(b.page);
-  const beforeB = await dbCounts(db, b.user.id);
   await tab(b.page, 'cards');
   await cardsTab(b.page, '完整备份');
   await b.page.getByTestId('backup-data').fill(backupText);
   await expect(b.page.getByTestId('backup-restore')).toBeDisabled();
+  // Snapshot after the default course tree is initialized; preview must not change data.
+  const beforeB = await dbCounts(db, b.user.id);
   const restorePreview = await uiWrite<{ errors: unknown[]; counts: { cards: number; reviews: number } }>(b.page, '/backup', 'POST', () => b.page.getByTestId('backup-preview').click());
   expect(restorePreview.errors).toEqual([]);
   expect(restorePreview.counts).toMatchObject({ cards: 2, reviews: 1 });
