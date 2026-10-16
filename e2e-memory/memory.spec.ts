@@ -696,6 +696,9 @@ test('UI quota/theme/exam settings, all 18 real training modes, three stable rat
   await page.reload();
   await ready(page);
   await page.getByTestId('course-select').selectOption(minimalCourse.id);
+  // Reload resets the queue choice; the new card also exceeds today's new-card
+  // quota, so select the 全部 queue explicitly.
+  await page.getByTestId('study-queue-all').click();
   await expect(page.locator('.study-review-card h3')).toHaveText('No invented formula');
   await page.getByTestId('study-task-mode').selectOption('formula');
   await expect(page.getByTestId('study-review-reveal')).toBeDisabled();
