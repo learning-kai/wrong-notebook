@@ -27,7 +27,7 @@ describe('review regression with real SQLite', () => {
     state.userId = 'user-b';
     expect((await settingsGet()).status).toBe(200);
     const initial = await json(await coursesGet());
-    expect(initial.map((course: { name: string }) => course.name)).toEqual(expect.arrayContaining(['考研英语一', '高等数学', '线性代数', '概率论与数理统计', '信号与系统']));
+    expect(initial.map((course: { name: string }) => course.name)).toEqual(expect.arrayContaining(['考研英语一作文', '高等数学', '线性代数', '概率论与数理统计', '信号与系统']));
     expect(initial).toHaveLength(5);
     expect(initial.every((course: { chapters: unknown[] }) => course.chapters.length > 0)).toBe(true);
     expect(await state.db.memoryCard.count({ where: { userId: 'user-b' } })).toBe(0);

@@ -7,14 +7,14 @@ afterEach(async () => { if(root) await act(async () => root?.unmount()); host?.r
 
 function input(field:string,value:string) { const node=host.querySelector(`[data-testid="card-${field}"]`) as HTMLInputElement; const proto=node.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,'value')?.set?.call(node,value);node.dispatchEvent(new Event('input',{bubbles:true})); }
 
-it('英语科目只显示英语相关字段，不出现公式与收敛域', async () => {
+it('英语科目只显示作文相关字段，不出现公式、收敛域与阅读分析字段', async () => {
   const {CardEditor} = await import('../../components/study/card-editor');
   host=document.createElement('div');document.body.append(host);root=createRoot(host);
   await act(async () => root?.render(<CardEditor courses={[{id:'en',name:'考研英语一',subjectKey:'postgraduate-english',chapters:[],_count:{cards:0}}]} courseId="en" onSave={async () => {}} onCancel={() => {}} />));
-  for (const field of ['title','prompt','answer','chinese','english','letterType','paragraphPosition','sentenceFunction','sentences','slots']) expect(host.querySelector(`[data-testid="card-${field}"]`), field).not.toBeNull();
-  for (const field of ['formula','roc','initialConditions','finalConditions','precautions']) expect(host.querySelector(`[data-testid="card-${field}"]`), field).toBeNull();
-  expect(host.textContent).toContain('考研英语一');
-  expect((host.querySelector('[data-testid="card-type"]') as HTMLSelectElement).value).toBe('translation');
+  for (const field of ['title','prompt','answer','chinese','english','letterType','paragraphPosition','sentences','slots']) expect(host.querySelector(`[data-testid="card-${field}"]`), field).not.toBeNull();
+  for (const field of ['formula','roc','initialConditions','finalConditions','precautions','sentenceFunction']) expect(host.querySelector(`[data-testid="card-${field}"]`), field).toBeNull();
+  expect(host.textContent).toContain('作文背诵');
+  expect((host.querySelector('[data-testid="card-type"]') as HTMLSelectElement).value).toBe('template');
 });
 
 it('数学科目显示公式/条件/步骤，不出现书信类型与段落位置', async () => {

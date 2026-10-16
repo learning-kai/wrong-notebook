@@ -32,16 +32,18 @@ const SHARED_FIELDS = ['explanation', 'pitfalls', 'source', 'notes'] as const;
 
 const ENGLISH_PROFILE: SubjectProfile = {
   key: 'postgraduate-english',
-  label: '考研英语一',
-  defaultCardType: 'translation',
+  label: '考研英语一 · 作文背诵',
+  defaultCardType: 'template',
   cardTypes: [
-    { value: 'translation', label: '句子 / 段落翻译' },
-    { value: 'template', label: '作文模板' },
-    { value: 'sentence', label: '句子结构' },
+    { value: 'template', label: '作文段落模板' },
+    { value: 'sentence', label: '句式与连接词' },
   ],
-  fields: ['title', 'prompt', 'answer', 'chinese', 'english', 'letterType', 'paragraphPosition', 'sentenceFunction', 'sentences', 'slots', ...SHARED_FIELDS],
-  modes: ['recall', 'zh-en', 'en-zh', 'paragraph', 'sentence-order', 'sentence-compose', 'template-match'],
-  hint: '英语按「中译英 / 英译中 / 段落定位 / 句子排序组句 / 模板关键词替换」背诵；不出现公式与收敛域字段。',
+  // Composition memorization only: a card is one paragraph template, organized
+  // by letter type (小作文) or paragraph position (大作文). No reading-analysis
+  // fields (sentence function) and no formula/ROC fields.
+  fields: ['title', 'prompt', 'answer', 'chinese', 'english', 'letterType', 'paragraphPosition', 'sentences', 'slots', ...SHARED_FIELDS],
+  modes: ['zh-en', 'cloze', 'sentence-order', 'sentence-compose', 'template-match'],
+  hint: '作文按「信件类型 + 段落位置」组织：中文提示 → 英文默写、关键词挖空、句子排序、多句组段、关键词替换迁移。只背作文，不出现公式 / 收敛域 / 阅读分析字段。',
 };
 
 const MATH_PROFILE: SubjectProfile = {
@@ -125,7 +127,7 @@ const PROFILES: Record<string, SubjectProfile> = {
  * onto the math profile and any finer subject key still resolves through ALIASES.
  */
 export const SUBJECT_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: 'postgraduate-english', label: '考研英语一（中英 · 写作模板）' },
+  { value: 'postgraduate-english', label: '考研英语一（作文背诵）' },
   { value: 'calculus', label: '高等数学（公式 · 条件）' },
   { value: 'linear-algebra', label: '线性代数（公式 · 性质）' },
   { value: 'probability', label: '概率论与数理统计（公式 · 分布）' },

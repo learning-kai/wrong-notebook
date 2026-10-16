@@ -10,15 +10,19 @@ describe('subject-aware card profiles', () => {
     expect(subjectProfileKey('postgraduate-english')).toBe('postgraduate-english');
   });
 
-  it('does not show formula/ROC fields for the English profile', () => {
+  it('makes English a composition-memorization profile (no formula/ROC/reading fields)', () => {
     const english = subjectProfile('postgraduate-english');
     expect(isProfileField(english, 'formula')).toBe(false);
     expect(isProfileField(english, 'roc')).toBe(false);
     expect(isProfileField(english, 'initialConditions')).toBe(false);
+    // Reading-analysis classification is not part of composition memorization.
+    expect(isProfileField(english, 'sentenceFunction')).toBe(false);
     expect(isProfileField(english, 'chinese')).toBe(true);
     expect(isProfileField(english, 'english')).toBe(true);
     expect(isProfileField(english, 'letterType')).toBe(true);
-    expect(english.defaultCardType).toBe('translation');
+    expect(isProfileField(english, 'paragraphPosition')).toBe(true);
+    expect(isProfileField(english, 'sentences')).toBe(true);
+    expect(english.defaultCardType).toBe('template');
   });
 
   it('does not show letter/paragraph/sentence-classification fields for math', () => {
@@ -39,8 +43,15 @@ describe('subject-aware card profiles', () => {
     expect(isProfileField(signals, 'letterType')).toBe(false);
   });
 
-  it('offers subject-appropriate training modes only', () => {
+  it('offers composition-only training modes for English', () => {
     expect(subjectModes(subjectProfile('postgraduate-english'))).toContain('zh-en');
+    expect(subjectModes(subjectProfile('postgraduate-english'))).toContain('cloze');
+    expect(subjectModes(subjectProfile('postgraduate-english'))).toContain('template-match');
+    expect(subjectModes(subjectProfile('postgraduate-english'))).toContain('sentence-order');
+    expect(subjectModes(subjectProfile('postgraduate-english'))).toContain('sentence-compose');
+    // Not a reading or translation-profile subject.
+    expect(subjectModes(subjectProfile('postgraduate-english'))).not.toContain('en-zh');
+    expect(subjectModes(subjectProfile('postgraduate-english'))).not.toContain('paragraph');
     expect(subjectModes(subjectProfile('postgraduate-english'))).not.toContain('roc');
     expect(subjectModes(subjectProfile('postgraduate-english'))).not.toContain('formula');
     expect(subjectModes(subjectProfile('signals-systems'))).toContain('roc');
