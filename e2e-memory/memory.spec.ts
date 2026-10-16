@@ -691,7 +691,9 @@ test('UI quota/theme/exam settings, all 18 real training modes, three stable rat
   await assertRated(a.context, seeded.cards.map(c => c.id), answers);
   const minimalCourse = await api<Course>(a.context, '/courses', 'POST', { name: 'Unavailable mode' });
   await api(a.context, '/cards', 'POST', { courseId: minimalCourse.id, title: 'No invented formula', prompt: 'Real question', answer: 'Real answer' });
-  await page.getByRole('button', { name: '刷新队列', exact: true }).click();
+  // A course created out-of-band appears after a real page refresh; the queue
+  // button only re-fetches the current scope.
+  await page.reload();
   await ready(page);
   await page.getByTestId('course-select').selectOption(minimalCourse.id);
   await expect(page.locator('.study-review-card h3')).toHaveText('No invented formula');
