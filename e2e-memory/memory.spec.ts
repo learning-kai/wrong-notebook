@@ -242,7 +242,7 @@ export function fullContent(title: string): Content {
     clozeText: '变量为 {{c1::\\nu}}，主题为 {{c2::signal}}。', source: 'E2E 自建夹具（非权威示例）',
     notes: '保留首尾\n以及 "引号" 和 ``` 围栏',
     sentences: ['First, define the signal.', 'Next, compute the transform.', 'Finally, check the ROC.'],
-    slots: { keyword: 'signal processing', audience: 'students' }, tags: ['E2E', '信号,英语', 'quoted "tag"'],
+    slots: { keyword: 'signal processing', audience: 'students' }, tags: ['E2E', '信号·英语', 'quoted "tag"'],
   };
 }
 export async function seed(actor: Actor, count = 3, prefix = 'Task') {
@@ -305,17 +305,23 @@ async function createUICard(page: Page, fields: Content, courseId: string, chapt
   await page.getByTestId('card-new').click();
   await page.getByTestId('card-course').selectOption(courseId);
   await page.getByTestId('card-chapter').selectOption(chapterId);
-  // Card type is a subject-aware <select>; pick it if offered, else rely on the
-  // subject default. Content fields not shown by the subject profile are only
-  // filled when present, so the helper stays valid for any course subject.
-  const typeSelect = page.getByTestId('card-type');
-  const options = await typeSelect.locator('option').evaluateAll(list => list.map(o => (o as HTMLOptionElement).value));
-  if (options.includes(fields.cardType)) await typeSelect.selectOption(fields.cardType);
+  // This course uses the general template: fill every content field that is
+  // rendered. Fields are collapsed under 更多选项, so open it first.
+  const more = page.getByTestId('card-more-toggle');
+  if (await more.count()) await more.click();
   for (const key of CONTENT_FIELDS.filter(key => !['cardType', 'tags', 'sentences', 'slots'].includes(key))) {
     const field = page.getByTestId(`card-${key}`);
     if (await field.count()) await field.fill(String(fields[key] ?? ''));
   }
-  for (const key of ['tags', 'sentences', 'slots'] as const) await page.getByTestId(`card-${key}`).fill(JSON.stringify(fields[key]));
+  const typeSelect = page.getByTestId('card-type');
+  if (await typeSelect.count()) {
+    const options = await typeSelect.locator('option').evaluateAll(list => list.map(o => (o as HTMLOptionElement).value));
+    if (options.includes(fields.cardType)) await typeSelect.selectOption(fields.cardType);
+  }
+  // Tags: comma/space separated; sentences: one per line; slots: "key: value" lines.
+  await page.getByTestId('card-tags').fill((fields.tags as string[]).join('、'));
+  await page.getByTestId('card-sentences').fill((fields.sentences as string[]).join('\n'));
+  await page.getByTestId('card-slots').fill(Object.entries(fields.slots as Record<string, string>).map(([k, v]) => `${k}: ${v}`).join('\n'));
   await page.getByTestId('card-dueAt').fill(`2020-01-01T00:0${ordinal}`);
   const card = await uiWrite<CardDTO>(page, '/cards', 'POST', () => page.getByTestId('card-save').click());
   await expect(page.getByTestId('card-save')).toHaveCount(0);
@@ -378,6 +384,9 @@ test('desktop/mobile UI CRUD, all fields, stable three-card review, refreshed hi
   const article = page.locator('.study-card-grid article').filter({ has: page.getByRole('heading', { name: cards[0].title, exact: true }) });
   await article.getByRole('button', { name: '编辑 / 到期', exact: true }).click();
   const editedNotes = 'UI edited notes\n' + String.raw`\nu stays exact`;
+  // notes lives under 更多选项 in the simplified editor.
+  const moreToggle = page.getByTestId('card-more-toggle');
+  if (await moreToggle.count()) await moreToggle.click();
   await page.getByTestId('card-notes').fill(editedNotes);
   await uiWrite(page, `/cards/${cards[0].id}`, 'PATCH', () => page.getByTestId('card-save').click());
   await expect(page.getByTestId('card-save')).toHaveCount(0);

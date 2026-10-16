@@ -22,6 +22,8 @@ export type SubjectProfile = {
   cardTypes: CardTypeOption[];
   /** Ordered card-editor field keys shown by default for this subject. */
   fields: readonly string[];
+  /** The few fields shown up front; the rest of `fields` collapse under 更多选项. */
+  primaryFields: readonly string[];
   /** Training modes offered for this subject, in display order. */
   modes: readonly TrainingModeId[];
   /** Short guidance shown in the editor header. */
@@ -42,8 +44,10 @@ const ENGLISH_PROFILE: SubjectProfile = {
   // by letter type (小作文) or paragraph position (大作文). No reading-analysis
   // fields (sentence function) and no formula/ROC fields.
   fields: ['title', 'prompt', 'answer', 'chinese', 'english', 'letterType', 'paragraphPosition', 'sentences', 'slots', ...SHARED_FIELDS],
+  // Only these are shown up front; prompt/answer are derived from 中文/英文.
+  primaryFields: ['chinese', 'english', 'letterType', 'paragraphPosition'],
   modes: ['zh-en', 'cloze', 'sentence-order', 'sentence-compose', 'template-match'],
-  hint: '作文按「信件类型 + 段落位置」组织：中文提示 → 英文默写、关键词挖空、句子排序、多句组段、关键词替换迁移。只背作文，不出现公式 / 收敛域 / 阅读分析字段。',
+  hint: '只填「中文提示 + 英文答案」即可；信件类型 / 段落位置用于分类，其余字段在「更多选项」里。',
 };
 
 const MATH_PROFILE: SubjectProfile = {
@@ -57,8 +61,9 @@ const MATH_PROFILE: SubjectProfile = {
     { value: 'cloze', label: '挖空' },
   ],
   fields: ['title', 'prompt', 'answer', 'formula', 'conditions', 'steps', 'comparison', 'clozeText', ...SHARED_FIELDS],
+  primaryFields: ['prompt', 'formula', 'conditions'],
   modes: ['recall', 'formula', 'formula-cloze', 'condition-conclusion', 'conclusion-condition', 'compare', 'steps'],
-  hint: '数学把「公式主体」和「使用条件」分开练：公式默写、条件推结论、结论反推条件、易混对比、解题步骤。',
+  hint: '填「题面 + 公式 + 适用条件」即可；解题步骤、易混对比、挖空在「更多选项」里。',
 };
 
 const SIGNALS_PROFILE: SubjectProfile = {
@@ -72,8 +77,9 @@ const SIGNALS_PROFILE: SubjectProfile = {
     { value: 'compare', label: '易混变换' },
   ],
   fields: ['title', 'prompt', 'answer', 'formula', 'roc', 'conditions', 'precautions', 'initialConditions', 'finalConditions', 'steps', 'comparison', 'clozeText', ...SHARED_FIELDS],
+  primaryFields: ['prompt', 'formula', 'roc'],
   modes: ['recall', 'formula', 'transform', 'inverse-transform', 'roc', 'initial-final', 'condition-conclusion', 'conclusion-condition', 'compare', 'steps'],
-  hint: '信号把变换对、收敛域、初值/终值条件分开记：正变换、逆变换、单独回忆 ROC、初值与终值条件辨析。',
+  hint: '填「题面 + 公式/变换 + 收敛域」即可；适用条件、初值/终值、步骤在「更多选项」里。',
 };
 
 /** Fallback: unknown/custom course keeps every field and mode available. */
@@ -90,8 +96,9 @@ const GENERAL_PROFILE: SubjectProfile = {
     { value: 'translation', label: '翻译' },
   ],
   fields: ['title', 'prompt', 'answer', 'formula', 'roc', 'conditions', 'precautions', 'steps', 'initialConditions', 'finalConditions', 'explanation', 'pitfalls', 'comparison', 'chinese', 'english', 'letterType', 'paragraphPosition', 'sentenceFunction', 'clozeText', 'source', 'notes'],
+  primaryFields: ['prompt', 'answer'],
   modes: ['recall', 'zh-en', 'en-zh', 'formula', 'cloze', 'formula-cloze', 'condition-conclusion', 'conclusion-condition', 'compare', 'steps', 'paragraph', 'sentence-order', 'sentence-compose', 'template-match', 'transform', 'inverse-transform', 'roc', 'initial-final'],
-  hint: '未指定科目的课程显示全部字段与训练模式；为课程设置科目可获得更聚焦的卡片模板。',
+  hint: '填「题面 + 答案」即可；其余字段在「更多选项」里。为课程设置科目可获得更聚焦的模板。',
 };
 
 /** subjectKey aliases used by study-track / knowledge-tags / seeded courses. */
@@ -147,6 +154,11 @@ export function subjectProfile(subjectKey?: string | null): SubjectProfile {
 /** True when the field belongs to the subject's default set. */
 export function isProfileField(profile: SubjectProfile, field: string): boolean {
   return profile.fields.includes(field);
+}
+
+/** True when the field is shown up front rather than under 更多选项. */
+export function isPrimaryField(profile: SubjectProfile, field: string): boolean {
+  return profile.primaryFields.includes(field);
 }
 
 /** Training modes for a subject, intersected with the full registry order. */

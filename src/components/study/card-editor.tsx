@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from 'react';
 import type { CardDTO, Course } from './types';
-import { subjectProfile, isProfileField, type SubjectProfile } from '@/lib/study-subject-profiles';
+import { subjectProfile, isProfileField, isPrimaryField, type SubjectProfile } from '@/lib/study-subject-profiles';
 
 /** All known editable fields, in canonical order. */
 export const CARD_FIELDS = [
@@ -23,6 +23,26 @@ export type CardPayload = Record<FieldName, string> & {
 };
 
 const LABELS = Object.fromEntries(CARD_FIELDS) as Record<FieldName, string>;
+const WIDE: readonly FieldName[] = ['prompt', 'answer', 'formula', 'steps', 'english', 'chinese'];
+const BIG: readonly FieldName[] = ['prompt', 'answer', 'formula', 'steps'];
+
+/** "key: value" lines ↔ slot map, so users never hand-write JSON. */
+function linesToSlots(value: string): Record<string, string> {
+    const slots: Record<string, string> = {};
+    for (const line of value.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        const at = trimmed.indexOf(':');
+        if (at < 0) continue;
+        const key = trimmed.slice(0, at).trim();
+        const text = trimmed.slice(at + 1).trim();
+        if (key) slots[key] = text;
+    }
+    return slots;
+}
+const slotsToLines = (slots: Record<string, string>) => Object.entries(slots).map(([k, v]) => `${k}: ${v}`).join('\n');
+const listToLines = (items: string[]) => items.join('\n');
+const linesToList = (value: string) => value.split('\n').map(s => s.trim()).filter(Boolean);
 
 export function CardEditor({ card, courses, courseId, chapterId = '', onSave, onCancel }: {
     card?: CardDTO;
@@ -36,43 +56,61 @@ export function CardEditor({ card, courses, courseId, chapterId = '', onSave, on
     const [course, setCourse] = useState(card?.courseId || courseId);
     const [chapter, setChapter] = useState(card?.chapterId || chapterId);
     const [cardType, setCardType] = useState(card?.cardType || '');
-    const [tags, setTags] = useState(JSON.stringify(card?.tags || []));
-    const [sentences, setSentences] = useState(JSON.stringify(card?.sentences || [], null, 2));
-    const [slots, setSlots] = useState(JSON.stringify(card?.slots || {}, null, 2));
+    const [tags, setTags] = useState((card?.tags || []).join('、'));
+    const [sentences, setSentences] = useState(listToLines(card?.sentences || []));
+    const [slots, setSlots] = useState(slotsToLines(card?.slots || {}));
     const [suspended, setSuspended] = useState(card?.suspended || false);
     const [dueAt, setDueAt] = useState('');
     const [showAll, setShowAll] = useState(false);
+    const [more, setMore] = useState(false);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
 
     const selectedCourse = courses.find(c => c.id === course);
     const profile: SubjectProfile = useMemo(() => subjectProfile(selectedCourse?.subjectKey), [selectedCourse?.subjectKey]);
-    // Subject default card type applies when the user has not chosen one.
     const effectiveCardType = cardType || (card?.cardType ?? profile.defaultCardType);
-    const shownFields = useMemo(() => CARD_FIELDS.filter(([key]) => showAll || isProfileField(profile, key)), [profile, showAll]);
-    // Any field that already holds content must stay visible/editable even if the
-    // profile would hide it, so subject switches never silently drop data.
-    const extraFields = useMemo(() => CARD_FIELDS.filter(([key]) => !isProfileField(profile, key) && (card?.[key] || fields[key])), [profile, card, fields]);
-    // Rendered fields = subject profile fields (or all when expanded) + any
-    // off-profile field that already has content.
-    const renderedFields = useMemo(() => showAll ? CARD_FIELDS : [...shownFields, ...extraFields.filter(([key]) => !shownFields.some(([k]) => k === key))], [showAll, shownFields, extraFields]);
+    // Only the subject's primary fields show up front; everything else (profile
+    // extras, shared fields, or any field that already has content) collapses
+    // under 更多选项 so a new card needs just a couple of inputs.
+    const primary = useMemo(() => CARD_FIELDS.filter(([key]) => isPrimaryField(profile, key)), [profile]);
+    const { secondary, hiddenExtras } = useMemo(() => {
+        const hasContent = (key: FieldName) => !!((card?.[key] ?? '') || fields[key]);
+        const secondaryFields = CARD_FIELDS.filter(([key]) =>
+            !primary.some(([k]) => k === key)
+            && (showAll || isProfileField(profile, key) || hasContent(key))
+        );
+        const hidden = CARD_FIELDS.filter(([key]) => hasContent(key) && !primary.some(([k]) => k === key) && !secondaryFields.some(([k]) => k === key));
+        return { secondary: secondaryFields, hiddenExtras: hidden };
+    }, [profile, primary, showAll, fields, card]);
 
+    // 中文/英文 are the human inputs; prompt/answer mirror them unless the user
+    // has typed something specific. This avoids filling the same text twice.
+    function setField(key: FieldName, value: string) {
+        setFields(prev => {
+            const next = { ...prev, [key]: value };
+            if (key === 'chinese' && !prev.prompt.trim()) next.prompt = value;
+            if (key === 'english' && !prev.answer.trim()) next.answer = value;
+            return next;
+        });
+    }
     async function save(e: React.FormEvent) {
         e.preventDefault();
         if (busy)
             return;
         setError('');
         try {
-            if (!course || !fields.title.trim() || !fields.prompt.trim() || !fields.answer.trim())
-                throw new Error('请选择课程，填写标题、正面和答案。');
-            const sentenceArray: unknown = JSON.parse(sentences), tagArray: unknown = JSON.parse(tags), slotMap: unknown = JSON.parse(slots);
-            if (!Array.isArray(sentenceArray) || sentenceArray.some(s => typeof s !== 'string'))
-                throw new Error('句子必须是 JSON 字符串数组。');
-            if (!Array.isArray(tagArray) || tagArray.some(s => typeof s !== 'string'))
-                throw new Error('标签必须是 JSON 字符串数组。');
-            if (!slotMap || typeof slotMap !== 'object' || Array.isArray(slotMap) || Object.values(slotMap).some(v => typeof v !== 'string'))
-                throw new Error('关键词槽位必须是 JSON 字符串字典。');
-            const payload: CardPayload = { ...fields, courseId: course, chapterId: chapter || null, cardType: effectiveCardType, tags: tagArray, sentences: sentenceArray, slots: slotMap as Record<string, string>, suspended };
+            if (!course)
+                throw new Error('请选择课程。');
+            const prompt = fields.prompt.trim() || fields.chinese.trim();
+            const answer = fields.answer.trim() || fields.english.trim();
+            if (!prompt || !answer)
+                throw new Error('请填写题面与答案（或中文 / 英文）。');
+            const payload: CardPayload = {
+                ...fields, prompt, answer,
+                courseId: course, chapterId: chapter || null, cardType: effectiveCardType,
+                tags: tags.split(/[、,，]+/).map(t => t.trim()).filter(Boolean),
+                sentences: linesToList(sentences), slots: linesToSlots(slots), suspended,
+            };
             if (dueAt)
                 payload.dueAt = new Date(dueAt).toISOString();
             setBusy(true);
@@ -86,23 +124,31 @@ export function CardEditor({ card, courses, courseId, chapterId = '', onSave, on
         }
     }
     function field(fieldKey: FieldName) {
-        const wide = ['prompt', 'answer', 'formula', 'steps', 'english', 'sentences'].includes(fieldKey);
-        return <label key={fieldKey} className={wide ? 'study-wide' : ''}>{LABELS[fieldKey]}{fieldKey === 'title' ? <input data-testid={`card-${fieldKey}`} value={fields[fieldKey]} onChange={e => setFields({ ...fields, [fieldKey]: e.target.value })} required/> : <textarea data-testid={`card-${fieldKey}`} rows={['prompt', 'answer', 'formula', 'steps'].includes(fieldKey) ? 4 : 2} value={fields[fieldKey]} onChange={e => setFields({ ...fields, [fieldKey]: e.target.value })} required={fieldKey === 'prompt' || fieldKey === 'answer'}/>}</label>;
+        const label = LABELS[fieldKey];
+        const common = { 'data-testid': `card-${fieldKey}`, value: fields[fieldKey], onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setField(fieldKey, e.target.value) };
+        return <label key={fieldKey} className={WIDE.includes(fieldKey) ? 'study-wide' : ''}>{label}
+            {fieldKey === 'title'
+                ? <input required {...common}/>
+                : <textarea rows={BIG.includes(fieldKey) ? 3 : 2} {...common}/>}
+        </label>;
     }
     return <section className="study-panel"><h2>{card ? '编辑卡片' : '新增卡片'}</h2>
-    <p className="study-muted">当前科目模板：<strong>{profile.label}</strong>。{profile.hint} Markdown / LaTeX 原样保存，答案判定由你自评。</p>
+    <p className="study-muted">{profile.hint}</p>
     <form onSubmit={save} className="study-form-grid">
       <label>所属课程<select data-testid="card-course" value={course} onChange={e => { setCourse(e.target.value); setChapter(''); setCardType(''); }} required><option value="">请选择</option>{courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
       <label>所属章节<select data-testid="card-chapter" value={chapter} onChange={e => setChapter(e.target.value)}><option value="">未分章</option>{selectedCourse?.chapters.map(ch => <option key={ch.id} value={ch.id}>{ch.name}</option>)}</select></label>
-      <label>卡片类型<select data-testid="card-type" value={effectiveCardType} onChange={e => setCardType(e.target.value)}>{profile.cardTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}{profile.cardTypes.every(t => t.value !== effectiveCardType) && <option value={effectiveCardType}>{effectiveCardType}</option>}</select></label>
-      {renderedFields.map(([key]) => field(key))}
-      {!showAll && !!extraFields.length && <p className="study-muted study-wide">该卡片还保存了当前科目模板外的字段（已保留，可编辑）：{extraFields.map(([key]) => LABELS[key]).join('、')}。<button type="button" onClick={() => setShowAll(true)}>显示全部字段</button></p>}
-      {showAll && <p className="study-wide"><button type="button" onClick={() => setShowAll(false)}>只看本模板字段</button></p>}
-      <label className="study-wide">标签（JSON 数组）<textarea data-testid="card-tags" value={tags} onChange={e => setTags(e.target.value)}/></label>
-      <label className="study-wide">句子（JSON 数组，原始顺序为答案；英语排序 / 组句使用）<textarea data-testid="card-sentences" rows={4} value={sentences} onChange={e => setSentences(e.target.value)}/></label>
-      <label className="study-wide">关键词槽位（JSON 字典，例如 {`{"keyword":"主题"}`}）<textarea data-testid="card-slots" rows={3} value={slots} onChange={e => setSlots(e.target.value)}/></label>
-      <label>手动修改下次复习时间<input type="datetime-local" data-testid="card-dueAt" value={dueAt} onChange={e => setDueAt(e.target.value)}/>{card && <small>当前：{new Date(card.dueAt).toLocaleString()}</small>}</label>
-      <label className="study-check"><input type="checkbox" checked={suspended} onChange={e => setSuspended(e.target.checked)}/>暂停复习</label>
+      {primary.map(([key]) => field(key))}
+      {(!!secondary.length || !!hiddenExtras.length) && <p className="study-wide"><button type="button" data-testid="card-more-toggle" onClick={() => setMore(v => !v)}>{more ? '收起更多选项' : '更多选项（可选）'}</button></p>}
+      {more && <>
+        {secondary.map(([key]) => field(key))}
+        {!!hiddenExtras.length && <p className="study-muted study-wide">已保留字段：{hiddenExtras.map(([key]) => LABELS[key]).join('、')}。<button type="button" onClick={() => setShowAll(true)}>显示全部字段</button></p>}
+        <label className="study-wide">句子（每行一句，用于排序 / 组句）<textarea data-testid="card-sentences" rows={3} value={sentences} onChange={e => setSentences(e.target.value)}/></label>
+        <label className="study-wide">关键词槽位（每行 <code>关键词: 替换值</code>，用于模板迁移）<textarea data-testid="card-slots" rows={3} value={slots} onChange={e => setSlots(e.target.value)}/></label>
+        <label className="study-wide">标签（用、或空格分隔）<input data-testid="card-tags" value={tags} onChange={e => setTags(e.target.value)}/></label>
+        <label className="study-wide">卡片类型<select data-testid="card-type" value={effectiveCardType} onChange={e => setCardType(e.target.value)}>{profile.cardTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}{profile.cardTypes.every(t => t.value !== effectiveCardType) && <option value={effectiveCardType}>{effectiveCardType}</option>}</select></label>
+        <label>手动修改下次复习时间<input type="datetime-local" data-testid="card-dueAt" value={dueAt} onChange={e => setDueAt(e.target.value)}/>{card && <small>当前：{new Date(card.dueAt).toLocaleString()}</small>}</label>
+        <label className="study-check"><input type="checkbox" checked={suspended} onChange={e => setSuspended(e.target.checked)}/>暂停复习</label>
+      </>}
       {error && <p role="alert" className="study-error study-wide">{error}</p>}
       <div className="study-actions study-wide"><button data-testid="card-save" className="study-primary" disabled={busy}>{busy ? '保存中…' : '保存卡片'}</button><button type="button" disabled={busy} onClick={onCancel}>取消</button></div>
     </form></section>;
