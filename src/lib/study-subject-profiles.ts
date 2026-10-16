@@ -119,6 +119,19 @@ const PROFILES: Record<string, SubjectProfile> = {
   general: GENERAL_PROFILE,
 };
 
+/**
+ * Choices offered when creating/editing a course. The stored `subjectKey` is the
+ * profile key (or the concrete subject key), so a course created as "数学" maps
+ * onto the math profile and any finer subject key still resolves through ALIASES.
+ */
+export const SUBJECT_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'postgraduate-english', label: '考研英语一（中英 · 写作模板）' },
+  { value: 'calculus', label: '高等数学（公式 · 条件）' },
+  { value: 'linear-algebra', label: '线性代数（公式 · 性质）' },
+  { value: 'probability', label: '概率论与数理统计（公式 · 分布）' },
+  { value: 'signals-systems', label: '信号与系统（变换 · 收敛域）' },
+];
+
 export function subjectProfileKey(subjectKey?: string | null): string {
   if (!subjectKey) return 'general';
   const normalized = subjectKey.trim().toLowerCase();

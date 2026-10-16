@@ -291,7 +291,7 @@ async function dialogs(page: Page, replies: string[], action: () => Promise<unkn
 async function createUICard(page: Page, fields: Content, courseId: string, chapterId: string, ordinal: number) {
   await page.getByTestId('card-new').click();
   await page.getByTestId('card-course').selectOption(courseId);
-  await page.getByLabel('所属章节', { exact: true }).selectOption(chapterId);
+  await page.getByTestId('card-chapter').selectOption(chapterId);
   // Card type is a subject-aware <select>; pick it if offered, else rely on the
   // subject default. Content fields not shown by the subject profile are only
   // filled when present, so the helper stays valid for any course subject.
@@ -440,7 +440,7 @@ test('UI malformed/quoted multiline CSV mapping, confirmation, dedupe, three exa
   await a.page.getByTestId('course-select').selectOption(course.id);
   await tab(a.page, 'import');
   const initial = await dbCounts(db, a.user.id);
-  await a.page.getByLabel('导入格式', { exact: true }).selectOption('csv');
+  await a.page.getByTestId('study-import-format').selectOption('csv');
   await a.page.getByTestId('study-import-data').fill('title,prompt,answer\n"Unclosed,question,answer');
   const malformed = await previewImport(a.page);
   expect(malformed.errors.length).toBeGreaterThan(0);
@@ -501,7 +501,7 @@ test('UI malformed/quoted multiline CSV mapping, confirmation, dedupe, three exa
   for (const format of ['csv', 'markdown', 'json'] as const) {
     for (const card of await allCards(a.context)) await api(a.context, `/cards/${card.id}`, 'DELETE');
     expect(await allCards(a.context)).toEqual([]);
-    await a.page.getByLabel('导入格式', { exact: true }).selectOption(format);
+    await a.page.getByTestId('study-import-format').selectOption(format);
     await a.page.getByTestId('study-import-data').fill(exported[format]);
     const preview = await previewImport(a.page);
     expect(preview.errors, `${format} preview`).toEqual([]);
@@ -599,9 +599,9 @@ test('UI quota/theme/exam settings, all 18 real training modes, three stable rat
   expect(await api<CardDTO[]>(a.context, `/review?mode=all&courseId=${seeded.course.id}`)).toHaveLength(3);
   await page.getByTestId('settings-daily-new').fill('3');
   await page.getByTestId('settings-dailyReviewLimit').fill('5');
-  await page.getByLabel('考试日期（可选）', { exact: true }).fill('2030-12-20');
-  await page.getByLabel('时区', { exact: true }).selectOption('UTC');
-  await page.getByLabel('主题', { exact: true }).selectOption('dark');
+  await page.getByTestId('settings-examDate').fill('2030-12-20');
+  await page.getByTestId('settings-timezone').selectOption('UTC');
+  await page.getByTestId('settings-theme').selectOption('dark');
   await uiWrite(page, '/settings', 'PATCH', () => page.getByTestId('settings-save').click());
   await ready(page);
   const settings = await api<StudySettingsDTO>(a.context, '/settings');
@@ -613,8 +613,8 @@ test('UI quota/theme/exam settings, all 18 real training modes, three stable rat
   await tab(page, 'settings');
   await expect(page.getByTestId('settings-daily-new')).toHaveValue('3');
   await expect(page.getByTestId('settings-dailyReviewLimit')).toHaveValue('5');
-  await expect(page.getByLabel('考试日期（可选）', { exact: true })).toHaveValue('2030-12-20');
-  await expect(page.getByLabel('主题', { exact: true })).toHaveValue('dark');
+  await expect(page.getByTestId('settings-examDate')).toHaveValue('2030-12-20');
+  await expect(page.getByTestId('settings-theme')).toHaveValue('dark');
   await page.getByTestId('course-select').selectOption(seeded.course.id);
   await page.getByTestId('chapter-select').selectOption(seeded.chapter.id);
   await tab(page, 'training');

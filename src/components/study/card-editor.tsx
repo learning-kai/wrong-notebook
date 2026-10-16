@@ -93,7 +93,7 @@ export function CardEditor({ card, courses, courseId, chapterId = '', onSave, on
     <p className="study-muted">当前科目模板：<strong>{profile.label}</strong>。{profile.hint} Markdown / LaTeX 原样保存，答案判定由你自评。</p>
     <form onSubmit={save} className="study-form-grid">
       <label>所属课程<select data-testid="card-course" value={course} onChange={e => { setCourse(e.target.value); setChapter(''); setCardType(''); }} required><option value="">请选择</option>{courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-      <label>所属章节<select value={chapter} onChange={e => setChapter(e.target.value)}><option value="">未分章</option>{selectedCourse?.chapters.map(ch => <option key={ch.id} value={ch.id}>{ch.name}</option>)}</select></label>
+      <label>所属章节<select data-testid="card-chapter" value={chapter} onChange={e => setChapter(e.target.value)}><option value="">未分章</option>{selectedCourse?.chapters.map(ch => <option key={ch.id} value={ch.id}>{ch.name}</option>)}</select></label>
       <label>卡片类型<select data-testid="card-type" value={effectiveCardType} onChange={e => setCardType(e.target.value)}>{profile.cardTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}{profile.cardTypes.every(t => t.value !== effectiveCardType) && <option value={effectiveCardType}>{effectiveCardType}</option>}</select></label>
       {renderedFields.map(([key]) => field(key))}
       {!showAll && !!extraFields.length && <p className="study-muted study-wide">该卡片还保存了当前科目模板外的字段（已保留，可编辑）：{extraFields.map(([key]) => LABELS[key]).join('、')}。<button type="button" onClick={() => setShowAll(true)}>显示全部字段</button></p>}
