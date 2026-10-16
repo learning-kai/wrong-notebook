@@ -338,7 +338,9 @@ test('desktop/mobile UI CRUD, all fields, stable three-card review, refreshed hi
   await page.getByLabel('新章节名称', { exact: true }).fill('UI initial chapter');
   const chapter = await uiWrite<{ id: string }>(page, `/courses/${course.id}/chapters`, 'POST', () => page.getByRole('button', { name: '新建章节', exact: true }).click());
   await expect(page.getByLabel('新章节名称', { exact: true })).toHaveValue('');
-  await dialogs(page, ['UI signal course edited', '2031'], async () => {
+  // Keep this course on the general template (blank subject) so the "all fields"
+  // assertions below still exercise every field.
+  await dialogs(page, ['UI signal course edited', '2031', ''], async () => {
     await uiWrite(page, `/courses/${course.id}`, 'PATCH', () => page.getByTestId('course-edit').click());
   });
   await expect(page.getByRole('heading', { name: 'UI signal course edited', exact: true })).toBeVisible();
