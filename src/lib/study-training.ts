@@ -4,14 +4,22 @@ export type TrainingModeId =
   | 'recall' | 'zh-en' | 'en-zh' | 'formula' | 'cloze' | 'formula-cloze'
   | 'condition-conclusion' | 'conclusion-condition' | 'compare' | 'steps'
   | 'paragraph' | 'sentence-order' | 'sentence-compose' | 'template-match'
-  | 'transform' | 'inverse-transform' | 'roc' | 'initial-final';
+  | 'transform' | 'inverse-transform' | 'roc' | 'initial-final'
+  | 'sentence-build';
 
 export interface TrainingMode {
   id: TrainingModeId;
   label: string;
 }
 
-export type TrainingTaskKind = 'text' | 'cloze' | 'order' | 'compose' | 'match';
+export type TrainingTaskKind = 'text' | 'cloze' | 'order' | 'compose' | 'match' | 'build';
+
+/** One Duolingo-style exercise: a Chinese cue and the English words to assemble. */
+export interface BuildSentence {
+  prompt: string;
+  answer: string;
+  tokens: string[];
+}
 
 export interface TrainingTask {
   prompt: string;
@@ -20,6 +28,8 @@ export interface TrainingTask {
   pairs?: Array<{ left: string; right: string }>;
   kind: TrainingTaskKind;
   warnings: string[];
+  /** Present for kind 'build': one entry per sentence, stepped through in order. */
+  buildSentences?: BuildSentence[];
 }
 
 export const TRAINING_MODES: TrainingMode[] = [
@@ -41,7 +51,13 @@ export const TRAINING_MODES: TrainingMode[] = [
   { id: 'inverse-transform', label: '逆变换' },
   { id: 'roc', label: 'ROC' },
   { id: 'initial-final', label: '初值/终值' },
+  { id: 'sentence-build', label: '拼句（词块）' },
 ];
+
+/** Split a sentence into word tokens, keeping trailing punctuation attached. */
+export function tokenizeSentence(sentence: string): string[] {
+  return sentence.trim().split(/\s+/).filter(Boolean);
+}
 
 function text(value: string | null | undefined): string {
   return typeof value === 'string' ? value : '';
@@ -197,6 +213,27 @@ export function buildTrainingTask(
       return warnings.length > 0
         ? disabled(warnings)
         : { prompt: '请用所给句子组成原文。', expectedAnswer: card.sentences.join(' '), items: [...card.sentences], kind: 'compose', warnings };
+    }
+    case 'sentence-build': {
+      // Duolingo-style: cue with Chinese, assemble the English from word tiles.
+      const warnings: string[] = [];
+      const english = card.sentences.length ? card.sentences : (text(card.english) ? text(card.english).split('\n').map(s => s.trim()).filter(Boolean) : []);
+      const chinese = text(card.chinese) ? text(card.chinese).split('\n').map(s => s.trim()).filter(Boolean) : [];
+      if (english.length === 0) warnings.push('模式不可用：缺少英文句子（sentences 或 english）');
+      const buildSentences: BuildSentence[] = english.map((sentence, i) => ({
+        prompt: chinese[i] ?? '',
+        answer: sentence,
+        tokens: tokenizeSentence(sentence),
+      }));
+      return warnings.length > 0
+        ? disabled(warnings)
+        : {
+            prompt: buildSentences[0]?.prompt || '拼出下面的英文句子。',
+            expectedAnswer: buildSentences.map(s => s.answer).join('\n'),
+            kind: 'build',
+            warnings,
+            buildSentences,
+          };
     }
     case 'template-match': {
       const source = text(card.prompt) || text(card.english);

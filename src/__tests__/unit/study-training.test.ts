@@ -21,7 +21,7 @@ describe('study training pure tasks', () => {
       'recall', 'zh-en', 'en-zh', 'formula', 'cloze', 'formula-cloze',
       'condition-conclusion', 'conclusion-condition', 'compare', 'steps',
       'paragraph', 'sentence-order', 'sentence-compose', 'template-match',
-      'transform', 'inverse-transform', 'roc', 'initial-final',
+      'transform', 'inverse-transform', 'roc', 'initial-final', 'sentence-build',
     ]);
   });
 

@@ -26,6 +26,8 @@ export type SubjectProfile = {
   primaryFields: readonly string[];
   /** Training modes offered for this subject, in display order. */
   modes: readonly TrainingModeId[];
+  /** Task preselected when opening a card of this subject. */
+  defaultMode: TrainingModeId;
   /** Short guidance shown in the editor header. */
   hint: string;
 };
@@ -46,8 +48,10 @@ const ENGLISH_PROFILE: SubjectProfile = {
   fields: ['title', 'prompt', 'answer', 'chinese', 'english', 'letterType', 'paragraphPosition', 'sentences', 'slots', ...SHARED_FIELDS],
   // Only these are shown up front; prompt/answer are derived from 中文/英文.
   primaryFields: ['chinese', 'english', 'letterType', 'paragraphPosition'],
-  modes: ['zh-en', 'cloze', 'sentence-order', 'sentence-compose', 'template-match'],
-  hint: '只填「中文提示 + 英文答案」即可；信件类型 / 段落位置用于分类，其余字段在「更多选项」里。',
+  modes: ['sentence-build', 'zh-en', 'cloze', 'sentence-order', 'sentence-compose', 'template-match'],
+  // Default task when opening a card: Duolingo-style sentence building.
+  defaultMode: 'sentence-build',
+  hint: '只填「中文提示 + 英文答案」即可；默认用「拼句」按多邻国方式点词块拼英文，其余字段在「更多选项」里。',
 };
 
 const MATH_PROFILE: SubjectProfile = {
@@ -63,6 +67,7 @@ const MATH_PROFILE: SubjectProfile = {
   fields: ['title', 'prompt', 'answer', 'formula', 'conditions', 'steps', 'comparison', 'clozeText', ...SHARED_FIELDS],
   primaryFields: ['prompt', 'formula', 'conditions'],
   modes: ['recall', 'formula', 'formula-cloze', 'condition-conclusion', 'conclusion-condition', 'compare', 'steps'],
+  defaultMode: 'recall',
   hint: '填「题面 + 公式 + 适用条件」即可；解题步骤、易混对比、挖空在「更多选项」里。',
 };
 
@@ -79,6 +84,7 @@ const SIGNALS_PROFILE: SubjectProfile = {
   fields: ['title', 'prompt', 'answer', 'formula', 'roc', 'conditions', 'precautions', 'initialConditions', 'finalConditions', 'steps', 'comparison', 'clozeText', ...SHARED_FIELDS],
   primaryFields: ['prompt', 'formula', 'roc'],
   modes: ['recall', 'formula', 'transform', 'inverse-transform', 'roc', 'initial-final', 'condition-conclusion', 'conclusion-condition', 'compare', 'steps'],
+  defaultMode: 'recall',
   hint: '填「题面 + 公式/变换 + 收敛域」即可；适用条件、初值/终值、步骤在「更多选项」里。',
 };
 
@@ -98,6 +104,7 @@ const GENERAL_PROFILE: SubjectProfile = {
   fields: ['title', 'prompt', 'answer', 'formula', 'roc', 'conditions', 'precautions', 'steps', 'initialConditions', 'finalConditions', 'explanation', 'pitfalls', 'comparison', 'chinese', 'english', 'letterType', 'paragraphPosition', 'sentenceFunction', 'clozeText', 'source', 'notes'],
   primaryFields: ['prompt', 'answer'],
   modes: ['recall', 'zh-en', 'en-zh', 'formula', 'cloze', 'formula-cloze', 'condition-conclusion', 'conclusion-condition', 'compare', 'steps', 'paragraph', 'sentence-order', 'sentence-compose', 'template-match', 'transform', 'inverse-transform', 'roc', 'initial-final'],
+  defaultMode: 'recall',
   hint: '填「题面 + 答案」即可；其余字段在「更多选项」里。为课程设置科目可获得更聚焦的模板。',
 };
 
