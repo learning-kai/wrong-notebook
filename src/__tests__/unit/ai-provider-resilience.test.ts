@@ -27,7 +27,7 @@ vi.mock('openai', () => {
     return { default: FakeOpenAI };
 });
 
-vi.mock('../config', () => ({
+vi.mock('../../lib/config', () => ({
     getAppConfig: () => ({
         aiProvider: 'openai',
         openai: { instances: [], activeInstanceId: '' },
@@ -36,12 +36,12 @@ vi.mock('../config', () => ({
     }),
 }));
 
-vi.mock('../tag-service', () => ({
+vi.mock('../../lib/tag-service', () => ({
     getMathTagsFromDB: async () => [],
     getTagsFromDB: async () => [],
 }));
 
-vi.mock('../logger', () => ({
+vi.mock('../../lib/logger', () => ({
     createLogger: () => ({
         info: () => {},
         debug: () => {},
@@ -51,22 +51,22 @@ vi.mock('../logger', () => ({
     }),
 }));
 
-vi.mock('../ai/prompts', () => ({
+vi.mock('../../lib/ai/prompts', () => ({
     generateAnalyzePrompt: () => 'system prompt',
     generateSimilarQuestionPrompt: () => 'similar prompt',
     generateGeogebraPrompt: () => 'geogebra prompt',
 }));
 
-vi.mock('../ai/schema', () => ({
+vi.mock('../../lib/ai/schema', () => ({
     safeParseParsedQuestion: (v: unknown) => ({ success: true, data: v }),
 }));
 
-vi.mock('../mistake-status', () => ({
+vi.mock('../../lib/mistake-status', () => ({
     normalizeMistakeStatusForSave: (v: unknown) => v,
 }));
 
 async function loadProvider() {
-    const mod = await import('../ai/openai-provider');
+    const mod = await import('../../lib/ai/openai-provider');
     return mod.OpenAIProvider;
 }
 
