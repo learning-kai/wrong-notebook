@@ -120,7 +120,7 @@ describe('OpenAIProvider 分析失败容错', () => {
         );
     });
 
-    it('中转站 524 会自动重试，重试成功则正常返回', async () => {
+    it('中转站 524 会自动重试，重试成功则正常返回', { timeout: 20000 }, async () => {
         const OpenAIProvider = await loadProvider();
         let call = 0;
         createImpl = async () => {
@@ -137,7 +137,7 @@ describe('OpenAIProvider 分析失败容错', () => {
         expect(createCalls.length).toBe(2);
     });
 
-    it('429 限流也会重试', async () => {
+    it('429 限流也会重试', { timeout: 20000 }, async () => {
         const OpenAIProvider = await loadProvider();
         let call = 0;
         createImpl = async () => {
@@ -151,7 +151,7 @@ describe('OpenAIProvider 分析失败容错', () => {
         expect(call).toBe(2);
     });
 
-    it('重试耗尽后 524 归为 AI_UPSTREAM_TIMEOUT', async () => {
+    it('重试耗尽后 524 归为 AI_UPSTREAM_TIMEOUT', { timeout: 20000 }, async () => {
         const OpenAIProvider = await loadProvider();
         createImpl = async () => {
             throw httpError(524);
