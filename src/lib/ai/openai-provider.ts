@@ -9,6 +9,19 @@ import { normalizeMistakeStatusForSave } from '../mistake-status';
 
 const logger = createLogger('ai:openai');
 
+/**
+ * 分析类请求的 token 上限。
+ *
+ * 推理型模型（deepseek-flash、gpt-6-astra 等）会先写 reasoning_content 再写正文，
+ * 8192 时常被思考阶段吃光导致正文为空（日志 "Empty response from AI"）。
+ * 16384 给正文留足空间，实测同一张图正文约 2.4k 字符。
+ */
+const DEFAULT_MAX_TOKENS = 16384;
+
+/** 可重试的上游故障：网关超时、限流、服务暂不可用。 */
+const RETRYABLE_PATTERN = /(524|522|504|429|rate limit|too many|busy|overloaded|unavailable|timeout|timed out)/i;
+const MAX_RETRIES = 2;
+
 type OpenAIUserContent = string | Array<
     { type: "text"; text: string } |
     { type: "image_url"; image_url: { url: string } }
@@ -256,7 +269,7 @@ export class OpenAIProvider implements AIService {
 
                 response = await res.json();
             } else {
-                response = await this.openai.chat.completions.create({
+                response = await this.callChatCompletions({
                     model: this.model,
                     messages: [
                         {
@@ -276,7 +289,7 @@ export class OpenAIProvider implements AIService {
                         },
                     ],
                     // response_format: { type: "json_object" }, // Removing to improve compatibility with 3rd party providers
-                    max_tokens: 8192,
+                    max_tokens: DEFAULT_MAX_TOKENS,
                 });
             }
 
@@ -288,7 +301,7 @@ export class OpenAIProvider implements AIService {
                 throw new Error("AI_RESPONSE_ERROR: API returned empty or invalid response");
             }
 
-            const text = response.choices[0]?.message?.content || "";
+            const text = this.extractText(response);
 
             logger.box('🤖 AI Raw Response', text);
 
@@ -339,7 +352,7 @@ export class OpenAIProvider implements AIService {
                 max_tokens: 8192,
             });
 
-            const text = response.choices[0]?.message?.content || "";
+            const text = this.extractText(response);
 
             logger.box('🤖 AI Raw Response', text);
 
@@ -498,12 +511,80 @@ export class OpenAIProvider implements AIService {
         }
     }
 
+    /**
+     * 带重试的 chat.completions 调用。
+     *
+     * 中转站（mdkj 之类）会在其 Cloudflare 回源超时时返回 524，或在高负载时返回 429，
+     * 这些是瞬时故障，重试通常就能成功。付费请求不应因一次瞬时故障就失败。
+     * 认证/参数类错误不重试，避免无意义放大请求。
+     */
+    private async callChatCompletions(params: any): Promise<any> {
+        let lastError: unknown;
+        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                return await this.openai.chat.completions.create(params);
+            } catch (error) {
+                lastError = error;
+                const message = error instanceof Error ? error.message : String(error);
+                const status = (error as { status?: number })?.status;
+                const retryable = RETRYABLE_PATTERN.test(message) || status === 524 || status === 522 || status === 504 || status === 429;
+
+                if (!retryable || attempt === MAX_RETRIES) {
+                    throw error;
+                }
+
+                const delayMs = 2000 * Math.pow(2, attempt);
+                logger.warn(
+                    { attempt: attempt + 1, status, message: message.slice(0, 120), delayMs },
+                    'Transient AI upstream failure, retrying'
+                );
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+            }
+        }
+        throw lastError;
+    }
+
+    /**
+     * 提取 AI 返回的正文。
+     *
+     * 推理型模型（deepseek-flash / gpt-6-astra / o 系列等）会先产出 reasoning_content，
+     * 再产出 content。当 max_tokens 在思考阶段就被耗尽时，content 为空而 reasoning 非空，
+     * 旧逻辑直接抛 "Empty response from AI"，用户只看到「AI 分析失败」，无法判断是长度不足。
+     * 这种情况下明确报出长度不足，让上层能给出可操作的提示。
+     */
+    private extractText(response: any): string {
+        const choice = response?.choices?.[0];
+        const message = choice?.message || {};
+        const content = typeof message.content === 'string' ? message.content : '';
+        if (content.trim()) return content;
+
+        const reasoning = typeof message.reasoning_content === 'string' ? message.reasoning_content : '';
+        if (reasoning.trim()) {
+            logger.error({
+                finishReason: choice?.finish_reason,
+                reasoningLength: reasoning.length,
+            }, 'Model spent all tokens on reasoning; content is empty');
+            throw new Error("AI_RESPONSE_TRUNCATED");
+        }
+
+        return '';
+    }
+
     private handleError(error: unknown) {
         logger.error({ error }, 'OpenAI error');
         if (error instanceof Error) {
             const msg = error.message.toLowerCase();
             if (msg.includes('fetch failed') || msg.includes('network') || msg.includes('connect')) {
                 throw new Error("AI_CONNECTION_FAILED");
+            }
+            // 推理模型把 token 全花在思考上，正文为空
+            if (msg.includes('ai_response_truncated')) {
+                throw new Error("AI_RESPONSE_TRUNCATED");
+            }
+            // 上游网关超时：524 是 Cloudflare 回源超时（中转站自己报的），
+            // 与本地超时无关，改本地超时无效；归到超时且提示可重试。
+            if (msg.includes('524') || msg.includes('522') || msg.includes('504')) {
+                throw new Error("AI_UPSTREAM_TIMEOUT");
             }
             // 超时错误 (包括 408 Request Timeout)
             if (msg.includes('timeout') || msg.includes('timed out') || msg.includes('aborted') || msg.includes('408')) {
