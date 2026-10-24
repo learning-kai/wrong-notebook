@@ -117,6 +117,7 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
             setData(prev => ({
                 ...prev,
                 answerText: result.answerText,
+                examSummary: (result as { examSummary?: string }).examSummary || "",
                 analysis: result.analysis,
                 knowledgePoints: result.knowledgePoints,
                 wrongAnswerText: result.wrongAnswerText || "",
@@ -170,6 +171,7 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                 body: JSON.stringify({
                     questionText: data.questionText,
                     answerText: data.answerText,
+                    examSummary: data.examSummary,
                     analysis: data.analysis,
                 }),
             });

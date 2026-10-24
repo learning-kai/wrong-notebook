@@ -95,6 +95,7 @@ model ErrorItem {
   // AI Analysis
   questionText     String? // Parsed question
   answerText       String? // AI provided answer
+  examSummary      String? // 考研速记：本题最值得记忆的核心结论/公式/判定条件
   analysis         String? // AI analysis/explanation
   wrongAnswerText  String? // Student's wrong answer/work if visible
   mistakeAnalysis  String? // Analysis of why the wrong answer happened

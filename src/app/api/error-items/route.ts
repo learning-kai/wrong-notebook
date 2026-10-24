@@ -21,6 +21,7 @@ export async function POST(req: Request) {
         const {
             questionText,
             answerText,
+            examSummary,
             analysis,
             wrongAnswerText,
             mistakeAnalysis,
@@ -166,6 +167,7 @@ export async function POST(req: Request) {
                     originalImageUrl,
                     questionText,
                     answerText,
+                    examSummary: examSummary || null,
                     analysis,
                     wrongAnswerText: wrongAnswerText || null,
                     mistakeAnalysis: mistakeAnalysis || null,

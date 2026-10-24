@@ -116,6 +116,7 @@ export class OpenAIProvider implements AIService {
 
         const questionText = this.extractTag(text, "question_text");
         const answerText = this.extractTag(text, "answer_text");
+        const examSummary = this.extractTag(text, "exam_summary") || "";
         const analysis = this.extractTag(text, "analysis");
         const subjectRaw = this.extractTag(text, "subject");
         const knowledgePointsRaw = this.extractTag(text, "knowledge_points");
@@ -150,6 +151,7 @@ export class OpenAIProvider implements AIService {
         const result: ParsedQuestion = {
             questionText,
             answerText,
+            examSummary,
             analysis,
             wrongAnswerText,
             mistakeAnalysis,

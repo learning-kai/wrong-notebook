@@ -246,6 +246,7 @@ export default function AddErrorPage() {
 
             const result = await apiClient.post<{
                 answerText: string;
+                examSummary?: string;
                 analysis: string;
                 knowledgePoints: string[];
                 wrongAnswerText: string;
@@ -263,6 +264,7 @@ export default function AddErrorPage() {
             const parsed: ParsedQuestion = {
                 questionText,
                 answerText: result.answerText,
+                examSummary: result.examSummary || "",
                 analysis: result.analysis,
                 knowledgePoints: result.knowledgePoints || [],
                 wrongAnswerText: result.wrongAnswerText || "",
