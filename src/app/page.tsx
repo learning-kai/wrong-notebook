@@ -308,6 +308,7 @@ function HomeContent() {
 
             const result = await apiClient.post<{
                 answerText: string;
+                examSummary?: string;
                 analysis: string;
                 knowledgePoints: string[];
                 wrongAnswerText: string;
@@ -325,6 +326,7 @@ function HomeContent() {
             const parsed: ParsedQuestion = {
                 questionText,
                 answerText: result.answerText,
+                examSummary: result.examSummary || "",
                 analysis: result.analysis,
                 knowledgePoints: result.knowledgePoints || [],
                 wrongAnswerText: result.wrongAnswerText || "",

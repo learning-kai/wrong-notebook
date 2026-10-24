@@ -8,9 +8,10 @@ export const ParsedQuestionSchema = z.object({
     questionText: z.string().min(1, "题目文本不能为空"),
     answerText: z.string().min(1, "答案不能为空"),
     // 考研速记：本题最值得记忆的核心结论/公式/判定条件。
-    // 允许为空或 null：历史错题从数据库读出的是 null，模型漏输出时是 undefined，
-    // 两者都不应导致整条解析失败。
-    examSummary: z.string().nullish().transform(v => v ?? ""),
+    // 用 default("") 而非 transform：default 让字段在类型推断里保持可选
+    // （z.input 可省略），同时把 null/undefined 都归一为空字符串，
+    // 这样历史错题和模型漏输出都不会导致校验失败，读取端也总能拿到 string。
+    examSummary: z.string().nullish().default(""),
     analysis: z.string().min(1, "解析不能为空"),
     wrongAnswerText: z.string().optional().default(""),
     mistakeAnalysis: z.string().optional().default(""),
